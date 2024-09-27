@@ -1,11 +1,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <cuda_runtime.h>
-#include <mma.h>
-#include <cuda_fp16.h>
+
 #include <math.h>
 
-using namespace nvcuda::wmma;
 namespace py = pybind11;
 
 #define cudaCheckError(ans)                   \
@@ -410,6 +408,6 @@ void attention(py::array_t<float> cpu_Q, py::array_t<float> cpu_K, py::array_t<f
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
-    m.def("attention", &attention, "TensorCore attention function",
+    m.def("attention", &attention, "Cuda Core attention function",
           py::arg("Q"), py::arg("K"), py::arg("V"), py::arg("N"), py::arg("d"), py::arg("output"));
 }

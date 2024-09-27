@@ -16,35 +16,34 @@ V = torch.randn(N, d, device=device, dtype=torch.float32, requires_grad=False)
 repeat = 20
 start_time = time.time()
 for i in range(repeat):
-    flash_attention_output = funAttention(Q, K, V)
-torch_flash_time = time.time() - start_time
-print("PyTorch Flash Attention time: %.6f seconds"%(torch_flash_time / repeat))
+    attTorch = funAttention(Q, K, V)
+torch_flash_time = 1000 * (time.time() - start_time)
+print("PyTorch Flash Attention time: %.6f ms"%(torch_flash_time / repeat))
 
 
 # 创建输出张量
-custom_output = np.zeros((N, d), dtype=np.float32)  
+attHPC = np.zeros((N, d), dtype=np.float32)  
 
 # 将输入张量转换为 numpy 并确保是 float32 类型
-Q_np = Q.squeeze(0).cpu().numpy().astype(np.float32)
-K_np = K.squeeze(0).cpu().numpy().astype(np.float32)
-V_np = V.squeeze(0).cpu().numpy().astype(np.float32)
+Q_np = Q.cpu().numpy().astype(np.float32)
+K_np = K.cpu().numpy().astype(np.float32)
+V_np = V.cpu().numpy().astype(np.float32)
 
 start_time = time.time()
 for i in range(repeat):
-    attention.attention(Q_np, K_np, V_np, N, d, custom_output)
-custom_attention_time = time.time() - start_time
-print("Custom Tensor Core Attention time: %.6f seconds"%(custom_attention_time / repeat))
+    attention.attention(Q_np, K_np, V_np, N, d, attHPC)
+custom_attention_time = 1000 * (time.time() - start_time)
+print("Cuda core Attention time: %.6f ms"%(custom_attention_time / repeat))
 
 # 将结果转换回 PyTorch 张量以进行比较
-custom_output_tensor = torch.tensor(custom_output, device=device)
+tmpa = attTorch.to('cpu').reshape(-1,1)
+tmpb = attHPC.reshape(-1,1)
+atol = max(abs(tmpa - tmpb))
+rtol = atol / max(abs(tmpb) + 1e-8)
 
-absolute_error = torch.abs(flash_attention_output - custom_output_tensor)
-relative_error = absolute_error / (torch.abs(flash_attention_output) + 1e-8)  # 防止除零
 
-print(f"Absolute error (mean): {torch.mean(absolute_error).item()}")
-print(f"Absolute error (max): {torch.max(absolute_error).item()}")
-print(f"Relative error (mean): {torch.mean(relative_error).item()}")
-print(f"Relative error (max): {torch.max(relative_error).item()}")
+print("absolute error:%.4e"%(atol))
+print("relative error:%.4e"%(rtol))
 
 # 对比性能
 speedup = torch_flash_time / custom_attention_time
