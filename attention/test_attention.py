@@ -36,14 +36,16 @@ custom_attention_time = 1000 * (time.time() - start_time)
 print("Cuda core Attention time: %.6f ms"%(custom_attention_time / repeat))
 
 # 将结果转换回 PyTorch 张量以进行比较
-tmpa = attTorch.to('cpu').reshape(-1,1)
-tmpb = attHPC.reshape(-1,1)
+tmpa = attTorch.to('cpu').numpy().reshape(-1,1).flatten()
+tmpb = attHPC.reshape(-1,1).flatten()
 atol = max(abs(tmpa - tmpb))
+
 rtol = atol / max(abs(tmpb) + 1e-8)
 
 
 print("absolute error:%.4e"%(atol))
 print("relative error:%.4e"%(rtol))
+
 
 # 对比性能
 speedup = torch_flash_time / custom_attention_time
