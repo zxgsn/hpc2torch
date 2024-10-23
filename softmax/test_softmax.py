@@ -1,6 +1,6 @@
 import torch
 import time
-import softmax  
+import softmaxCuda
 import numpy as np
 import torch.nn.functional as F
 
@@ -38,7 +38,7 @@ Q_output = np.zeros(test_shape).astype(np.float32)
 
 start_time = time.time()
 for i in range(repeat):
-    softmax.softmax(Q_np, Q_output, size, dimsize, stride)
+    softmaxCuda.softmax(Q_np, Q_output, size, dimsize, stride)
 custom_softmax_time = 1000 * (time.time() - start_time)
 print("Cuda core Softmax time: %.6f ms"%(custom_softmax_time / repeat))
 

@@ -5,7 +5,7 @@ setup(
     name='softmax',#指定python包的名称是softmax
     ext_modules=[
         CUDAExtension(
-            'softmax',#扩展模块名称，不一定和name相同
+            'softmaxCuda',#扩展模块名称，不一定和name相同,后面import softmaxCuda
             ['softmax.cu'],
             extra_compile_args={'nvcc': ['-arch=sm_70']}
         ),
