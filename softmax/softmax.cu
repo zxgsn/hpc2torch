@@ -277,7 +277,7 @@ __global__ void _warpSoftmaxKernel(T *__restrict input, T *__restrict output,
         }
     }
 }
-void softmax(py::array_t<float> cpu_input, py::array_t<float> cpu_output, int size, int dimsize, int stride, int axis)
+void softmax(py::array_t<float> cpu_input, py::array_t<float> cpu_output, int size, int dimsize, int stride)
 {
     py::buffer_info input_info = cpu_input.request();
     float *input_ptr = static_cast<float *>(input_info.ptr);
@@ -376,12 +376,12 @@ void softmax(py::array_t<float> cpu_input, py::array_t<float> cpu_output, int si
         _warpSoftmaxKernel<float, 4, 256, 2>
             <<<grid_dim, block_dim>>>(input, output, size, dimsize, stride);
     }
-    cudaMemcpy(output_ptr, outputput, size * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(output_ptr, output, size * sizeof(float), cudaMemcpyDeviceToHost);
     cudaFree(input);
     cudaFree(output);
 }
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
     m.def("softmax", &softmax, "Cuda Core softmax function",
-          py::arg("input"), py::arg("output"), py::arg("size"), py::arg("dimsize"), py::arg("stride"), py::arg("axis"));
+          py::arg("input"), py::arg("output"), py::arg("size"), py::arg("dimsize"), py::arg("stride"));
 }
