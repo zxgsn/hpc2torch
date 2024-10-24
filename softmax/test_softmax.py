@@ -23,6 +23,10 @@ for i in range(ndim - 1, -1, -1):
 Q = torch.randn(test_shape, device=device, dtype=torch.float32, requires_grad=False) 
 
 repeat = 20
+#下面开始预热
+for i in range(repeat):
+    soTorch = torch.softmax(Q, axis = test_axis)
+#正式计时
 start_time = time.time()
 for i in range(repeat):
     soTorch = torch.softmax(Q, axis = test_axis)
@@ -32,20 +36,22 @@ print("PyTorch softmax time: %.6f ms"%(torch_softmax_time / repeat))
 
 
 
-# 将输入张量转换为 numpy 并确保是 float32 类型
-Q_np = Q.cpu().numpy().astype(np.float32)
-Q_output = np.zeros(test_shape).astype(np.float32)
 
+Q_output = torch.zeros(test_shape, device=device, dtype=torch.float32) 
+#下面开始预热
+for i in range(repeat):
+    softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)
+#正式计时
 start_time = time.time()
 for i in range(repeat):
-    softmaxCuda.softmax(Q_np, Q_output, size, dimsize, stride)
+    softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)
 custom_softmax_time = 1000 * (time.time() - start_time)
 print("Cuda core Softmax time: %.6f ms"%(custom_softmax_time / repeat))
 
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = soTorch.to('cpu').reshape(-1,1).numpy().flatten()
 
-tmpb = Q_output.reshape(-1,1).flatten()
+tmpb = Q_output.to('cpu').reshape(-1,1).numpy().flatten()
 
 print(tmpa.shape, type(tmpa), tmpb.shape, type(tmpb))
 atol = max(abs(tmpa - tmpb))

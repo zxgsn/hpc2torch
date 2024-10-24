@@ -1,5 +1,5 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <torch/torch.h>
 #include <cuda_runtime.h>
 
 #include <math.h>
@@ -365,28 +365,18 @@ __global__ void _attentionKernel(const float *__restrict inputQ,
     }
 }
 
-void attention(py::array_t<float> cpu_Q, py::array_t<float> cpu_K, py::array_t<float> cpu_V, int N, int d, py::array_t<float> cpu_output)
+void attentionLaunch(torch::Tensor Q_tensor, torch::Tensor K_tensor, torch::Tensor V_tensor, int N, int d, torch::Tensor output_tensor)
 {
-    py::buffer_info Q_info = cpu_Q.request();
-    py::buffer_info K_info = cpu_K.request();
-    py::buffer_info V_info = cpu_V.request();
-    py::buffer_info output_info = cpu_output.request();
+    // 确保输入和输出张量都是在CUDA上
+    TORCH_CHECK(Q_tensor.is_cuda(), "Q tensor must be on the GPU");
+    TORCH_CHECK(K_tensor.is_cuda(), "K tensor must be on the GPU");
+    TORCH_CHECK(V_tensor.is_cuda(), "V tensor must be on the GPU");
+    TORCH_CHECK(output_tensor.is_cuda(), "Output tensor must be on the GPU");
 
-    float *Q_ptr = static_cast<float *>(Q_info.ptr);
-    float *K_ptr = static_cast<float *>(K_info.ptr);
-    float *V_ptr = static_cast<float *>(V_info.ptr);
-    float *output_ptr = static_cast<float *>(output_info.ptr);
-
-    float *inputQ, *inputK, *inputV, *output;
-
-    cudaCheckError(cudaMalloc((void **)&inputQ, N * d * sizeof(float)));
-    cudaCheckError(cudaMalloc((void **)&inputK, N * d * sizeof(float)));
-    cudaCheckError(cudaMalloc((void **)&inputV, N * d * sizeof(float)));
-    cudaCheckError(cudaMalloc((void **)&output, N * d * sizeof(float)));
-
-    cudaCheckError(cudaMemcpy(inputQ, Q_ptr, N * d * sizeof(float), cudaMemcpyHostToDevice));
-    cudaCheckError(cudaMemcpy(inputK, K_ptr, N * d * sizeof(float), cudaMemcpyHostToDevice));
-    cudaCheckError(cudaMemcpy(inputV, V_ptr, N * d * sizeof(float), cudaMemcpyHostToDevice));
+    float *inputQ = Q_tensor.data_ptr<float>();
+    float *inputK = K_tensor.data_ptr<float>();
+    float *inputV = V_tensor.data_ptr<float>();
+    float *output = output_tensor.data_ptr<float>();
 
     int num_block_x = (d + Rv * Bc - 1) / (Rv * Bc);
     int num_block_y = (N + Rq * Br - 1) / (Rq * Br);
@@ -397,17 +387,10 @@ void attention(py::array_t<float> cpu_Q, py::array_t<float> cpu_K, py::array_t<f
         <<<grid_dim, block_dim>>>(inputQ, inputK, inputV, N, d, output);
     cudaCheckError(cudaPeekAtLastError());
     cudaCheckError(cudaDeviceSynchronize());
-
-    cudaCheckError(cudaMemcpy(output_ptr, output, N * d * sizeof(float), cudaMemcpyDeviceToHost));
-
-    cudaFree(inputQ);
-    cudaFree(inputK);
-    cudaFree(inputV);
-    cudaFree(output);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
-    m.def("attention", &attention, "Cuda Core attention function",
+    m.def("attention", &attentionLaunch, "Cuda Core attention function",
           py::arg("Q"), py::arg("K"), py::arg("V"), py::arg("N"), py::arg("d"), py::arg("output"));
 }

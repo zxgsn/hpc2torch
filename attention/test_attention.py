@@ -1,6 +1,6 @@
 import torch
 import time
-import attention  
+import attentionCuda 
 import numpy as np
 import torch.nn.functional as F
 def funAttention(Q, K, V): 
@@ -14,6 +14,10 @@ Q = torch.randn(N, d, device=device, dtype=torch.float32, requires_grad=False)
 K = torch.randn(N, d, device=device, dtype=torch.float32, requires_grad=False)
 V = torch.randn(N, d, device=device, dtype=torch.float32, requires_grad=False)
 repeat = 20
+#下面开始预热
+for i in range(repeat):
+    attTorch = funAttention(Q, K, V)
+#正式计时
 start_time = time.time()
 for i in range(repeat):
     attTorch = funAttention(Q, K, V)
@@ -22,22 +26,22 @@ print("PyTorch Flash Attention time: %.6f ms"%(torch_flash_time / repeat))
 
 
 # 创建输出张量
-attHPC = np.zeros((N, d), dtype=np.float32)  
+attHPC = torch.zeros([N, d], device = device, dtype = torch.float32)
 
-# 将输入张量转换为 numpy 并确保是 float32 类型
-Q_np = Q.cpu().numpy().astype(np.float32)
-K_np = K.cpu().numpy().astype(np.float32)
-V_np = V.cpu().numpy().astype(np.float32)
 
+#下面开始预热
+for i in range(repeat):
+    attentionCuda.attention(Q, K, V, N, d, attHPC)
+#正式计时
 start_time = time.time()
 for i in range(repeat):
-    attention.attention(Q_np, K_np, V_np, N, d, attHPC)
+    attentionCuda.attention(Q, K, V, N, d, attHPC)
 custom_attention_time = 1000 * (time.time() - start_time)
 print("Cuda core Attention time: %.6f ms"%(custom_attention_time / repeat))
 
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = attTorch.to('cpu').numpy().reshape(-1,1).flatten()
-tmpb = attHPC.reshape(-1,1).flatten()
+tmpb = attHPC.to('cpu').numpy().reshape(-1,1).flatten()
 atol = max(abs(tmpa - tmpb))
 
 rtol = atol / max(abs(tmpb) + 1e-8)

@@ -1,5 +1,5 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <torch/torch.h>
 #include <cub/block/block_reduce.cuh>
 namespace py = pybind11;
 
@@ -277,18 +277,17 @@ __global__ void _warpSoftmaxKernel(T *__restrict input, T *__restrict output,
         }
     }
 }
-void softmaxLaunch(py::array_t<float> cpu_input, py::array_t<float> cpu_output, int size, int dimsize, int stride)
+void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int size, int dimsize, int stride)
 {
-    py::buffer_info input_info = cpu_input.request();
-    float *input_ptr = static_cast<float *>(input_info.ptr);
-    py::buffer_info output_info = cpu_output.request();
-    float *output_ptr = static_cast<float *>(output_info.ptr);
+    // 确保输入和输出张量都是在CUDA上
+    TORCH_CHECK(input_tensor.is_cuda(), "Input tensor must be on the GPU");
+    TORCH_CHECK(output_tensor.is_cuda(), "Output tensor must be on the GPU");
+
+    float *input = input_tensor.data_ptr<float>();
+    float *output = output_tensor.data_ptr<float>();
+    // 计算结束以后结果会自动更新到output_tensor，不需要额外复制
 
     int num_blocks = size / dimsize;
-    float *input, *output;
-    cudaMalloc((void **)&input, size * sizeof(float));
-    cudaMalloc((void **)&output, size * sizeof(float));
-    cudaMemcpy(input, input_ptr, size * sizeof(float), cudaMemcpyHostToDevice);
 
     if (dimsize > 1024 * 128)
     {
@@ -376,9 +375,7 @@ void softmaxLaunch(py::array_t<float> cpu_input, py::array_t<float> cpu_output, 
         _warpSoftmaxKernel<float, 4, 256, 2>
             <<<grid_dim, block_dim>>>(input, output, size, dimsize, stride);
     }
-    cudaMemcpy(output_ptr, output, size * sizeof(float), cudaMemcpyDeviceToHost);
-    cudaFree(input);
-    cudaFree(output);
+    cudaDeviceSynchronize();
 }
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 {
