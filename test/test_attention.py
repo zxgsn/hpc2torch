@@ -1,8 +1,14 @@
 import torch
 import time
-import attentionCuda 
 import numpy as np
 import torch.nn.functional as F
+# 添加上一层目录到模块搜索路径
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# 现在可以导入 attentionCuda
+import attentionCuda
+
 def funAttention(Q, K, V): 
     return torch.softmax(Q@K.t(), dim = 1)@V
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

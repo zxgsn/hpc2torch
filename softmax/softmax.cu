@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <torch/torch.h>
 #include <cub/block/block_reduce.cuh>
+
 namespace py = pybind11;
 
 struct __align__(8) DataMaxSum
