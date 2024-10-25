@@ -31,14 +31,12 @@ Q = torch.randn(test_shape, device=device, dtype=torch.float32, requires_grad=Fa
 
 torch_softmax_time = performance.CudaProfile((torch.softmax, (Q, test_axis)))  # 以毫秒为单位
 
-print("PyTorch softmax time: %.6f ms"%(torch_softmax_time))
-
 
 Q_output = torch.zeros(test_shape, device=device, dtype=torch.float32) 
 
 custom_softmax_time = performance.CudaProfile((softmaxCuda.softmax, (Q, Q_output, size, dimsize, stride)))  # 以毫秒为单位
-print("Cuda core Softmax time: %.6f ms"%(custom_softmax_time))
 
+performance.logBenchmark(torch_softmax_time, custom_softmax_time)
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = torch.softmax(Q, test_axis).to('cpu').reshape(-1,1).numpy().flatten()
 softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)

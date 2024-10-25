@@ -22,7 +22,7 @@ K = torch.randn(N, d, device=device, dtype=torch.float32, requires_grad=False)
 V = torch.randn(N, d, device=device, dtype=torch.float32, requires_grad=False)
 
 torch_flash_time = performance.CudaProfile((funAttention, (Q, K, V)))
-print("PyTorch Flash Attention time: %.6f ms"%(torch_flash_time))
+
 
 
 # 创建输出张量
@@ -30,7 +30,7 @@ attHPC = torch.zeros([N, d], device = device, dtype = torch.float32)
 
 
 custom_attention_time = performance.CudaProfile((attentionCuda.attention, (Q, K, V, N, d, attHPC)))
-print("Cuda core Attention time: %.6f ms"%(custom_attention_time))
+performance.logBenchmark(torch_flash_time, custom_attention_time)
 
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = funAttention(Q, K, V).to('cpu').numpy().reshape(-1,1).flatten()
