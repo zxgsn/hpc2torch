@@ -2,6 +2,7 @@ import torch
 import time
 import numpy as np
 import torch.nn.functional as F
+import performance
 # 添加上一层目录到模块搜索路径
 import sys
 import os
@@ -27,38 +28,22 @@ for i in range(ndim - 1, -1, -1):
 
 Q = torch.randn(test_shape, device=device, dtype=torch.float32, requires_grad=False) 
 
-repeat = 20
-#下面开始预热
-for i in range(repeat):
-    soTorch = torch.softmax(Q, axis = test_axis)
-#正式计时
-start_time = time.time()
-for i in range(repeat):
-    soTorch = torch.softmax(Q, axis = test_axis)
-torch_softmax_time = 1000 * (time.time() - start_time)
-print("PyTorch softmax time: %.6f ms"%(torch_softmax_time / repeat))
 
+torch_softmax_time = performance.CudaProfile((torch.softmax, (Q, test_axis)))  # 以毫秒为单位
 
-
+print("PyTorch softmax time: %.6f ms"%(torch_softmax_time))
 
 
 Q_output = torch.zeros(test_shape, device=device, dtype=torch.float32) 
-#下面开始预热
-for i in range(repeat):
-    softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)
-#正式计时
-start_time = time.time()
-for i in range(repeat):
-    softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)
-custom_softmax_time = 1000 * (time.time() - start_time)
-print("Cuda core Softmax time: %.6f ms"%(custom_softmax_time / repeat))
+
+custom_softmax_time = performance.CudaProfile((softmaxCuda.softmax, (Q, Q_output, size, dimsize, stride)))  # 以毫秒为单位
+print("Cuda core Softmax time: %.6f ms"%(custom_softmax_time))
 
 # 将结果转换回 PyTorch 张量以进行比较
-tmpa = soTorch.to('cpu').reshape(-1,1).numpy().flatten()
-
+tmpa = torch.softmax(Q, test_axis).to('cpu').reshape(-1,1).numpy().flatten()
+softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)
 tmpb = Q_output.to('cpu').reshape(-1,1).numpy().flatten()
 
-print(tmpa.shape, type(tmpa), tmpb.shape, type(tmpb))
 atol = max(abs(tmpa - tmpb))
 
 rtol = atol / max(abs(tmpb) + 1e-8)
