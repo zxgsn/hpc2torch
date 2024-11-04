@@ -7,8 +7,8 @@ import performance
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# 现在可以导入 softmaxCuda
-import softmaxCuda
+# 现在可以导入 my_cuda_ops
+import my_cuda_ops
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 ndim = 3
@@ -34,12 +34,12 @@ torch_softmax_time = performance.CudaProfile((torch.softmax, (Q, test_axis)))  #
 
 Q_output = torch.zeros(test_shape, device=device, dtype=torch.float32) 
 
-custom_softmax_time = performance.CudaProfile((softmaxCuda.softmax, (Q, Q_output, size, dimsize, stride)))  # 以毫秒为单位
+custom_softmax_time = performance.CudaProfile((my_cuda_ops.softmax, (Q, Q_output, size, dimsize, stride)))  # 以毫秒为单位
 
 performance.logBenchmark(torch_softmax_time, custom_softmax_time)
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = torch.softmax(Q, test_axis).to('cpu').reshape(-1,1).numpy().flatten()
-softmaxCuda.softmax(Q, Q_output, size, dimsize, stride)
+my_cuda_ops.softmax(Q, Q_output, size, dimsize, stride)
 tmpb = Q_output.to('cpu').reshape(-1,1).numpy().flatten()
 
 atol = max(abs(tmpa - tmpb))

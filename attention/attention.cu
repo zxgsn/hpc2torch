@@ -388,9 +388,3 @@ void attentionLaunch(torch::Tensor Q_tensor, torch::Tensor K_tensor, torch::Tens
     cudaCheckError(cudaPeekAtLastError());
     cudaCheckError(cudaDeviceSynchronize());
 }
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
-{
-    m.def("attention", &attentionLaunch, "Cuda Core attention function",
-          py::arg("Q"), py::arg("K"), py::arg("V"), py::arg("N"), py::arg("d"), py::arg("output"));
-}

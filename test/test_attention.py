@@ -7,8 +7,8 @@ import performance
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# 现在可以导入 attentionCuda
-import attentionCuda
+# 现在可以导入 my_cuda_ops
+import my_cuda_ops
 
 def funAttention(Q, K, V): 
     return torch.softmax(Q@K.t(), dim = 1)@V
@@ -29,12 +29,12 @@ torch_flash_time = performance.CudaProfile((funAttention, (Q, K, V)))
 attHPC = torch.zeros([N, d], device = device, dtype = torch.float32)
 
 
-custom_attention_time = performance.CudaProfile((attentionCuda.attention, (Q, K, V, N, d, attHPC)))
+custom_attention_time = performance.CudaProfile((my_cuda_ops.attention, (Q, K, V, N, d, attHPC)))
 performance.logBenchmark(torch_flash_time, custom_attention_time)
 
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = funAttention(Q, K, V).to('cpu').numpy().reshape(-1,1).flatten()
-attentionCuda.attention(Q, K, V, N, d, attHPC)
+my_cuda_ops.attention(Q, K, V, N, d, attHPC)
 tmpb = attHPC.to('cpu').numpy().reshape(-1,1).flatten()
 atol = max(abs(tmpa - tmpb))
 
