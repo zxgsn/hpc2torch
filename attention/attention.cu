@@ -362,7 +362,7 @@ __global__ void _attentionKernel(const float *__restrict inputQ,
     }
 }
 
-void attentionLaunch(torch::Tensor Q_tensor, torch::Tensor K_tensor, torch::Tensor V_tensor, int N, int d, torch::Tensor output_tensor)
+void attention_nv_f32(torch::Tensor Q_tensor, torch::Tensor K_tensor, torch::Tensor V_tensor, int N, int d, torch::Tensor output_tensor)
 {
     // 确保输入和输出张量都是在CUDA上
     TORCH_CHECK(Q_tensor.is_cuda(), "Q tensor must be on the GPU");

@@ -20,12 +20,12 @@ __device__ __forceinline__ DataMaxSum reduce_dms_op(DataMaxSum a,
 }
 template <typename T, int BLOCK_DIM>
 __launch_bounds__(BLOCK_DIM) __global__ void _blockSoftmaxKernel(
-    T *__restrict input, T *__restrict output, int size, int dimsize,
+    T *__restrict input, T *__restrict output, int dimsize,
     int stride)
 { // if set axis = 1, inputShape=[I,J,K,S]
   // tid = i(JKS) + j(KS) + k(S) + s
 
-    // blockDim.x = size/dimsize = IKS
+    // blockDim.x = othersize = size/dimsize = IKS
     // blockIdx.x = i(KS) + k(S) + s,blockIdx.x%stride = k(S) + s
 
     int tid =
@@ -113,13 +113,13 @@ __launch_bounds__(BLOCK_DIM) __global__ void _blockSoftmaxKernel(
 
 template <typename T, int BLOCK_DIM, int numPerThread>
 __global__ void
-_blockSoftmaxKernel(T *__restrict input, T *__restrict output, int size,
+_blockSoftmaxKernel(T *__restrict input, T *__restrict output,
                     int dimsize,
                     int stride)
 { // if set axis = 1, inputShape=[I,J,K,S]
   // tid = i(JKS) + j(KS) + k(S) + s
 
-    // blockDim.x = size/dimsize = IKS
+    // blockDim.x = othersize = size/dimsize = IKS
     // blockIdx.x = i(KS) + k(S) + s,blockIdx.x%stride = k(S) + s
 
     int tid =
@@ -226,13 +226,13 @@ __inline__ __device__ T WarpAllReduce(T val)
 
 template <typename T, int BLOCK_DIM_x, int BLOCK_DIM_y, int numPerThreadx>
 __global__ void _warpSoftmaxKernel(T *__restrict input, T *__restrict output,
-                                   int size, int dimsize, int stride)
+                                   int othersize, int dimsize, int stride)
 {
     int otherIdx = blockIdx.x * blockDim.y + threadIdx.y;
-    int otherSize = size / dimsize;
+
     int tid = otherIdx % stride + (otherIdx - otherIdx % stride) * dimsize;
     float dataPerThreadx[numPerThreadx];
-    if (otherIdx < otherSize)
+    if (otherIdx < othersize)
     {
 
         __shared__ float max_total[BLOCK_DIM_y];
@@ -275,15 +275,10 @@ __global__ void _warpSoftmaxKernel(T *__restrict input, T *__restrict output,
         }
     }
 }
-void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int size, int dimsize, int stride)
+//-----------------
+template <typename T>
+void softmaxLaunch(T const *input, T *output, int size, int dimsize, int stride)
 {
-    // 确保输入和输出张量都是在CUDA上
-    TORCH_CHECK(input_tensor.is_cuda(), "Input tensor must be on the GPU");
-    TORCH_CHECK(output_tensor.is_cuda(), "Output tensor must be on the GPU");
-
-    float *input = input_tensor.data_ptr<float>();
-    float *output = output_tensor.data_ptr<float>();
-    // 计算结束以后结果会自动更新到output_tensor，不需要额外复制
 
     int num_blocks = size / dimsize;
 
@@ -291,43 +286,43 @@ void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int 
     {
 
         int BLOCK_DIM = 1024;
-        _blockSoftmaxKernel<float, 1024>
-            <<<num_blocks, BLOCK_DIM>>>(input, output, size, dimsize, stride);
+        _blockSoftmaxKernel<T, 1024>
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)output, dimsize, stride);
     }
     else if (dimsize > 1024 * 64)
     {
 
         int BLOCK_DIM = 1024;
-        _blockSoftmaxKernel<float, 1024, 128>
-            <<<num_blocks, BLOCK_DIM>>>(input, output, size, dimsize, stride);
+        _blockSoftmaxKernel<T, 1024, 128>
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)output, dimsize, stride);
     }
     else if (dimsize > 1024 * 32)
     {
 
         int BLOCK_DIM = 1024;
-        _blockSoftmaxKernel<float, 1024, 64>
-            <<<num_blocks, BLOCK_DIM>>>(input, output, size, dimsize, stride);
+        _blockSoftmaxKernel<T, 1024, 64>
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)output, dimsize, stride);
     }
     else if (dimsize > 1024 * 16)
     {
 
         int BLOCK_DIM = 1024;
-        _blockSoftmaxKernel<float, 1024, 32>
-            <<<num_blocks, BLOCK_DIM>>>(input, output, size, dimsize, stride);
+        _blockSoftmaxKernel<T, 1024, 32>
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)output, dimsize, stride);
     }
     else if (dimsize > 1024 * 4)
     {
 
         int BLOCK_DIM = 1024;
-        _blockSoftmaxKernel<float, 1024, 16>
-            <<<num_blocks, BLOCK_DIM>>>(input, output, size, dimsize, stride);
+        _blockSoftmaxKernel<T, 1024, 16>
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)output, dimsize, stride);
     }
     else if (dimsize > 1024)
     {
 
         int BLOCK_DIM = 1024;
-        _blockSoftmaxKernel<float, 1024, 4>
-            <<<num_blocks, BLOCK_DIM>>>(input, output, size, dimsize, stride);
+        _blockSoftmaxKernel<T, 1024, 4>
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)output, dimsize, stride);
     }
     else if (dimsize > 31)
     {
@@ -337,8 +332,8 @@ void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int 
         dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
         dim3 grid_dim(num_block_x, 1, 1);
 
-        _warpSoftmaxKernel<float, 32, 32, 32>
-            <<<grid_dim, block_dim>>>(input, output, size, dimsize, stride);
+        _warpSoftmaxKernel<T, 32, 32, 32>
+            <<<grid_dim, block_dim>>>((T *)input, (T *)output, num_blocks, dimsize, stride);
     }
     else if (dimsize > 15)
     {
@@ -348,8 +343,8 @@ void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int 
         dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
         dim3 grid_dim(num_block_x, 1, 1);
 
-        _warpSoftmaxKernel<float, 16, 64, 2>
-            <<<grid_dim, block_dim>>>(input, output, size, dimsize, stride);
+        _warpSoftmaxKernel<T, 16, 64, 2>
+            <<<grid_dim, block_dim>>>((T *)input, (T *)output, num_blocks, dimsize, stride);
     }
     else if (dimsize > 7)
     {
@@ -359,8 +354,8 @@ void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int 
         dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
         dim3 grid_dim(num_block_x, 1, 1);
 
-        _warpSoftmaxKernel<float, 8, 128, 2>
-            <<<grid_dim, block_dim>>>(input, output, size, dimsize, stride);
+        _warpSoftmaxKernel<T, 8, 128, 2>
+            <<<grid_dim, block_dim>>>((T *)input, (T *)output, num_blocks, dimsize, stride);
     }
     else
     {
@@ -370,8 +365,19 @@ void softmaxLaunch(torch::Tensor input_tensor, torch::Tensor output_tensor, int 
         dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
         dim3 grid_dim(num_block_x, 1, 1);
 
-        _warpSoftmaxKernel<float, 4, 256, 2>
-            <<<grid_dim, block_dim>>>(input, output, size, dimsize, stride);
+        _warpSoftmaxKernel<T, 4, 256, 2>
+            <<<grid_dim, block_dim>>>((T *)input, (T *)output, num_blocks, dimsize, stride);
     }
     cudaDeviceSynchronize();
+}
+void softmax_nv_f32(torch::Tensor input_tensor, torch::Tensor output_tensor, int size, int dimsize, int stride)
+{
+    // 确保输入和输出张量都是在CUDA上
+    TORCH_CHECK(input_tensor.is_cuda(), "Input tensor must be on the GPU");
+    TORCH_CHECK(output_tensor.is_cuda(), "Output tensor must be on the GPU");
+
+    float *input = input_tensor.data_ptr<float>();
+    float *output = output_tensor.data_ptr<float>();
+    // 计算结束以后结果会自动更新到output_tensor，不需要额外复制
+    softmaxLaunch<float>(input, output, size, dimsize, stride);
 }
