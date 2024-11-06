@@ -1,10 +1,7 @@
-#include <pybind11/pybind11.h>
 #include <torch/torch.h>
 #include <cuda_runtime.h>
 
 #include <math.h>
-
-namespace py = pybind11;
 
 #define cudaCheckError(ans)                   \
     {                                         \

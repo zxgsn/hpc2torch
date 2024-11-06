@@ -4,7 +4,7 @@ python test/test_softmax.py
 
 python test/test_attention.py
 
-rm -rf bulid
+rm -rf build/
 
 rm -rf test/__pycache__
 

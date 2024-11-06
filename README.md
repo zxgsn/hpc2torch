@@ -1,1 +1,2 @@
-# Cuda2Torch
+# hpc2Torch
+这个仓库打算搭建一个高性能底层库的测试框架，将会针对onnx的算子编写相关的高性能kernel，作为pytorch的补充，从python端对比手写kernel和pytorch库函数的性能以及精度对比。
