@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.16)
 
-project(MyCUDAProject LANGUAGES CXX CUDA)
+project(MyCUDAProject)
 
 # 查找 Python 库
 find_package(Python3 REQUIRED)
@@ -22,12 +22,16 @@ file(GLOB BANG_SOURCE_FILES "src/**/*.mlu")
 # 根据选项决定编译哪些源文件
 if(USE_CUDA)
     message(STATUS "CUDA build enabled.")
+    enable_language(CXX)
+    enable_language(CUDA)
     list(APPEND ALL_SOURCE_FILES ${CUDA_SOURCE_FILES} ${CPP_SOURCE_FILES})
 elseif(USE_BANG)
     message(STATUS "BANG build enabled.")
+    enable_language(CXX)
     list(APPEND ALL_SOURCE_FILES ${BANG_SOURCE_FILES} ${CPP_SOURCE_FILES})
 elseif(USE_CPU)
     message(STATUS "CPU-only build enabled.")
+    enable_language(CXX)
     list(APPEND ALL_SOURCE_FILES ${CPP_SOURCE_FILES})
 else()
     message(FATAL_ERROR "No valid compilation mode specified. Please enable USE_CUDA, USE_BANG, or USE_CPU.")
