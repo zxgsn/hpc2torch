@@ -1,16 +1,23 @@
 import torch
-import time
+import ctypes
 import numpy as np
 import torch.nn.functional as F
 import performance
 # 添加上一层目录到模块搜索路径
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# 现在可以导入 my_cuda_ops
-import my_cuda_ops
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.././build/lib/libmy_cuda_library.so')
+lib = ctypes.CDLL(lib_path)
+lib.softmax_nv_f32.argtypes = [
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_int
+]
+
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 ndim = 3
 test_shape = [700, 1200, 24]  
 test_axis = ndim - 1
@@ -34,12 +41,15 @@ torch_softmax_time = performance.CudaProfile((torch.softmax, (Q, test_axis)))  #
 
 Q_output = torch.zeros(test_shape, device=device, dtype=torch.float32) 
 
-custom_softmax_time = performance.CudaProfile((my_cuda_ops.softmax, (Q, Q_output, size, dimsize, stride)))  # 以毫秒为单位
+input_ptr = ctypes.cast(Q.data_ptr(), ctypes.POINTER(ctypes.c_float))
+output_ptr = ctypes.cast(Q_output.data_ptr(), ctypes.POINTER(ctypes.c_float))
+
+custom_softmax_time = performance.CudaProfile((lib.softmax_nv_f32, (input_ptr, output_ptr, size, dimsize, stride)))  # 以毫秒为单位
 
 performance.logBenchmark(torch_softmax_time, custom_softmax_time)
 # 将结果转换回 PyTorch 张量以进行比较
 tmpa = torch.softmax(Q, test_axis).to('cpu').reshape(-1,1).numpy().flatten()
-my_cuda_ops.softmax(Q, Q_output, size, dimsize, stride)
+lib.softmax_nv_f32(input_ptr, output_ptr, size, dimsize, stride)
 tmpb = Q_output.to('cpu').reshape(-1,1).numpy().flatten()
 
 atol = max(abs(tmpa - tmpb))

@@ -1,8 +1,6 @@
-#include <torch/torch.h>
 #include <cuda_runtime.h>
-
+#include <stdio.h> // 确保包含这个头文件
 #include <math.h>
-
 #define cudaCheckError(ans)                   \
     {                                         \
         gpuAssert((ans), __FILE__, __LINE__); \
@@ -362,18 +360,8 @@ __global__ void _attentionKernel(const float *__restrict inputQ,
     }
 }
 
-void attention_nv_f32(torch::Tensor Q_tensor, torch::Tensor K_tensor, torch::Tensor V_tensor, int N, int d, torch::Tensor output_tensor)
+extern "C" void attention_nv_f32(float *inputQ, float *inputK, float *inputV, int N, int d, float *output)
 {
-    // 确保输入和输出张量都是在CUDA上
-    TORCH_CHECK(Q_tensor.is_cuda(), "Q tensor must be on the GPU");
-    TORCH_CHECK(K_tensor.is_cuda(), "K tensor must be on the GPU");
-    TORCH_CHECK(V_tensor.is_cuda(), "V tensor must be on the GPU");
-    TORCH_CHECK(output_tensor.is_cuda(), "Output tensor must be on the GPU");
-
-    float *inputQ = Q_tensor.data_ptr<float>();
-    float *inputK = K_tensor.data_ptr<float>();
-    float *inputV = V_tensor.data_ptr<float>();
-    float *output = output_tensor.data_ptr<float>();
 
     int num_block_x = (d + Rv * Bc - 1) / (Rv * Bc);
     int num_block_y = (N + Rq * Br - 1) / (Rq * Br);

@@ -1,4 +1,3 @@
-#include <torch/torch.h>
 #include <cub/block/block_reduce.cuh>
 
 struct __align__(8) DataMaxSum
@@ -370,14 +369,7 @@ void softmaxLaunch(T const *input, T *output, int size, int dimsize, int stride)
     }
     cudaDeviceSynchronize();
 }
-void softmax_nv_f32(torch::Tensor input_tensor, torch::Tensor output_tensor, int size, int dimsize, int stride)
+extern "C" void softmax_nv_f32(float *input, float *output, int size, int dimsize, int stride)
 {
-    // 确保输入和输出张量都是在CUDA上
-    TORCH_CHECK(input_tensor.is_cuda(), "Input tensor must be on the GPU");
-    TORCH_CHECK(output_tensor.is_cuda(), "Output tensor must be on the GPU");
-
-    float *input = input_tensor.data_ptr<float>();
-    float *output = output_tensor.data_ptr<float>();
-    // 计算结束以后结果会自动更新到output_tensor，不需要额外复制
     softmaxLaunch<float>(input, output, size, dimsize, stride);
 }
