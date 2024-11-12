@@ -30,6 +30,18 @@ def CpuProfile(*function_with_args):
     
     elapsed_time = time.time() - start  # 以毫秒为单位        
     return 1000 * elapsed_time/times
+def BangProfile(*function_with_args):
+    times = 20
+    for _ in range(times):
+        for func, args in function_with_args:
+            func(*args)
+    start = time.time()
+    for _ in range(times):
+        for func, args in function_with_args:
+            func(*args)
+    
+    elapsed_time = time.time() - start  # 以毫秒为单位        
+    return 1000 * elapsed_time/times
 def logBenchmark(baseline, time):
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
     msg = "Pytorch: " + str(baseline) + " ms, kernel: " + str(time) + " ms "

@@ -55,6 +55,28 @@ def test(test_shape, test_axis, test_dtype, device):
             ctypes.c_int
         ]
         custom_softmax_time = performance.CpuProfile((lib.softmax_cpu_f32, (input_ptr, output_ptr, size, dimsize, stride)))  # 以毫秒为单位
+    if device == "mlu":
+        torch_softmax_time = performance.BangProfile((torch.softmax, (Q, test_axis)))  # 以毫秒为单位
+        ndim = len(test_shape)
+        frontsize = 1
+        othersize = 1
+        for s in range(ndim - 1, -1, -1):
+            if (s < test_axis): 
+                frontsize *= test_shape[s]
+            if (s != test_axis):
+                othersize *= test_shape[s];
+        
+        lib.softmax_bang_f32.argtypes = [
+            ctypes.POINTER(ctypes.c_float),
+            ctypes.POINTER(ctypes.c_float),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int
+        ]
+        custom_softmax_time = performance.BangProfile((lib.softmax_bang_f32, (input_ptr, output_ptr, othersize, dimsize, frontsize, stride, test_axis, ndim)))  # 以毫秒为单位
     performance.logBenchmark(torch_softmax_time, custom_softmax_time)
     # 将结果转换回 PyTorch 张量以进行比较
     tmpa = torch.softmax(Q, test_axis).to('cpu').reshape(-1,1).numpy().flatten()
@@ -70,7 +92,7 @@ def test(test_shape, test_axis, test_dtype, device):
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(description="Test softmax on different devices.")
-parser.add_argument('--device', choices=['cpu', 'cuda'], required=True, help="Device to run the tests on.")
+parser.add_argument('--device', choices=['cpu', 'cuda', 'mlu'], required=True, help="Device to run the tests on.")
 args = parser.parse_args()    
 
 test_cases = [
@@ -78,6 +100,10 @@ test_cases = [
         ((700, 1200, 24), 0, torch.float32, 'cuda'),
         ((700, 1200, 24), 1, torch.float32, 'cuda'), 
         ((700, 1200, 24), 2, torch.float32, 'cuda'), 
+
+        ((700, 1200, 24), 0, torch.float32, 'mlu'),
+        ((700, 1200, 24), 1, torch.float32, 'mlu'), 
+        ((700, 1200, 24), 2, torch.float32, 'mlu'), 
 
         ((70, 12, 24), 0, torch.float32, 'cpu'),
         ((70, 12, 24), 1, torch.float32, 'cpu'), 
@@ -89,7 +115,8 @@ filtered_test_cases = [
     for test_shape, test_axis, test_dtype, device in test_cases
     if device == args.device
 ]
-
+if args.device == 'mlu':
+    import torch_mlu
 # 执行过滤后的测试用例
 for test_shape, test_axis, test_dtype, device in filtered_test_cases:
     test(test_shape, test_axis, test_dtype, device)
