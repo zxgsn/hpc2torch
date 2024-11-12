@@ -9,10 +9,9 @@ include_directories(${Python3_INCLUDE_DIRS})
 # 设置 CUDA 编译选项
 set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O3")
 
-# CUDA 源文件
-set(CUDA_SOURCE_FILES 
-src/attention/attention.cu
-src/softmax/softmax.cu
+# 查找所有 .cu 文件
+file(GLOB CUDA_SOURCE_FILES 
+    "src/**/*.cu"  # 匹配 src 目录下的所有 .cu 文件
 )
 
 # 添加 CUDA 可执行文件或库
@@ -27,4 +26,3 @@ target_link_libraries(my_cuda_library PRIVATE ${Python3_LIBRARIES})
 # 指定输出目录
 set_target_properties(my_cuda_library PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-
