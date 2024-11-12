@@ -12,6 +12,7 @@ set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -O3")
 # 查找所有 .cu 文件
 file(GLOB CUDA_SOURCE_FILES 
     "src/**/*.cu"  # 匹配 src 目录下的所有 .cu 文件
+    "src/**/*.cpp"
 )
 
 # 添加 CUDA 可执行文件或库
