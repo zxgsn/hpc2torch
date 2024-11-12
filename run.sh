@@ -1,4 +1,4 @@
 mkdir build
 cd build
-cmake ..
+cmake ../ -DUSE_CPU=ON
 make

@@ -2,6 +2,8 @@ import torch
 import ctypes
 import numpy as np
 import torch.nn.functional as F
+import argparse
+
 import performance
 # 添加上一层目录到模块搜索路径
 import sys
@@ -11,7 +13,7 @@ import os
 def funAttention(Q, K, V): 
     return torch.softmax(Q@K.t(), dim = 1)@V
 
-lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.././build/lib/libmy_cuda_library.so')
+lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.././build/lib/libmy_library.so')
 lib = ctypes.CDLL(lib_path)
 
 
@@ -59,6 +61,10 @@ def test(test_shape, test_dtype, device):
     print("absolute error:%.4e"%(atol))
     print("relative error:%.4e"%(rtol))
 
+# 解析命令行参数
+parser = argparse.ArgumentParser(description="Test softmax on different devices.")
+parser.add_argument('--device', choices=['cpu', 'cuda'], required=True, help="Device to run the tests on.")
+args = parser.parse_args()    
 
 test_cases = [
         # x_shape, axis
@@ -67,5 +73,11 @@ test_cases = [
         ((1024, 128), torch.float32, 'cuda'), 
         ((1024, 1024), torch.float32, 'cuda'), 
 ]
-for test_shape,test_dtype, device in test_cases:
+filtered_test_cases = [
+    (test_shape, test_dtype, device)
+    for test_shape, test_dtype, device in test_cases
+    if device == args.device
+]
+
+for test_shape,test_dtype, device in filtered_test_cases:
     test(test_shape, test_dtype, device)
