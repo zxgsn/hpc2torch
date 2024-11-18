@@ -15,9 +15,9 @@ option(USE_BANG "Enable BANG compilation" OFF)
 option(USE_CPU "Enable CPU-only compilation" OFF)
 
 # 查找源文件
-file(GLOB CPP_SOURCE_FILES "src/**/*.cpp")
-file(GLOB CUDA_SOURCE_FILES "src/**/*.cu")
-file(GLOB BANG_SOURCE_FILES "src/**/*.mlu")
+file(GLOB CPP_SOURCE_FILES "src/**/cpu/*.cpp")
+file(GLOB CUDA_SOURCE_FILES "src/**/cuda/*.cu")
+file(GLOB BANG_SOURCE_FILES "src/**/mlu/*.mlu")
 
 # 根据选项决定编译哪些源文件
 if(USE_CUDA)
