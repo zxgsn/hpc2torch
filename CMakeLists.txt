@@ -15,7 +15,16 @@ option(USE_BANG "Enable BANG compilation" OFF)
 option(USE_CPU "Enable CPU-only compilation" OFF)
 
 # 查找源文件
+# 添加头文件搜索路径  
+include_directories(${PROJECT_SOURCE_DIR}/include)
+
+#使用 GLOB 命令找到 include/ 下的所有 .cpp 文件
+file(GLOB INCLUDE_SOURCE_FILES "include/**.cpp")
+ 
+# 使用 list(APPEND ...) 命令将 INCLUDE_SOURCE_FILES 添加到 CPP_SOURCE_FILES
 file(GLOB CPP_SOURCE_FILES "src/**/cpu/*.cpp")
+list(APPEND CPP_SOURCE_FILES ${INCLUDE_SOURCE_FILES})
+
 file(GLOB CUDA_SOURCE_FILES "src/**/cuda/*.cu")
 file(GLOB BANG_SOURCE_FILES "src/**/mlu/*.mlu")
 

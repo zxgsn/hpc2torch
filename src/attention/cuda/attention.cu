@@ -360,7 +360,7 @@ __global__ void _attentionKernel(const float *__restrict inputQ,
     }
 }
 
-extern "C" void attention_nv_f32(float *inputQ, float *inputK, float *inputV, int N, int d, float *output)
+extern "C" void attention_nv_f32(void const *inputQ, void const *inputK, void const *inputV, int N, int d, void *output)
 {
 
     int num_block_x = (d + Rv * Bc - 1) / (Rv * Bc);
@@ -369,7 +369,7 @@ extern "C" void attention_nv_f32(float *inputQ, float *inputK, float *inputV, in
     dim3 block_dim(Bc, Br, 1);
 
     _attentionKernel<Br, Bc, Rq, Rv>
-        <<<grid_dim, block_dim>>>(inputQ, inputK, inputV, N, d, output);
+        <<<grid_dim, block_dim>>>((float *)inputQ, (float *)inputK, (float *)inputV, N, d, (float *)output);
     cudaCheckError(cudaPeekAtLastError());
     cudaCheckError(cudaDeviceSynchronize());
 }

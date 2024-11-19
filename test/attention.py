@@ -28,18 +28,18 @@ def test(test_shape, test_dtype, device):
     # 创建输出张量
     attHPC = torch.zeros(test_shape, device = device, dtype = torch.float32)
 
-    Q_ptr = ctypes.cast(Q.data_ptr(), ctypes.POINTER(ctypes.c_float))
-    K_ptr = ctypes.cast(K.data_ptr(), ctypes.POINTER(ctypes.c_float))
-    V_ptr = ctypes.cast(V.data_ptr(), ctypes.POINTER(ctypes.c_float))
-    attHPC_ptr = ctypes.cast(attHPC.data_ptr(), ctypes.POINTER(ctypes.c_float))
+    Q_ptr = ctypes.cast(Q.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
+    K_ptr = ctypes.cast(K.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
+    V_ptr = ctypes.cast(V.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
+    attHPC_ptr = ctypes.cast(attHPC.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     if device == "cuda":
         lib.attention_nv_f32.argtypes = [
-        ctypes.POINTER(ctypes.c_float),
-        ctypes.POINTER(ctypes.c_float),
-        ctypes.POINTER(ctypes.c_float),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
         ctypes.c_int,
         ctypes.c_int,
-        ctypes.POINTER(ctypes.c_float)
+        ctypes.POINTER(ctypes.c_void_p)
         ]
 
         torch_flash_time = performance.CudaProfile((funAttention, (Q, K, V)))

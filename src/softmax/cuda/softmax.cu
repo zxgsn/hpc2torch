@@ -19,7 +19,7 @@ __device__ __forceinline__ DataMaxSum reduce_dms_op(DataMaxSum a,
 }
 template <typename T, int BLOCK_DIM>
 __launch_bounds__(BLOCK_DIM) __global__ void _blockSoftmaxKernel(
-    T *__restrict input, T *__restrict output, int dimsize,
+    T const *input, T *output, int dimsize,
     int stride)
 { // if set axis = 1, inputShape=[I,J,K,S]
   // tid = i(JKS) + j(KS) + k(S) + s
@@ -112,7 +112,7 @@ __launch_bounds__(BLOCK_DIM) __global__ void _blockSoftmaxKernel(
 
 template <typename T, int BLOCK_DIM, int numPerThread>
 __global__ void
-_blockSoftmaxKernel(T *__restrict input, T *__restrict output,
+_blockSoftmaxKernel(T const *input, T *output,
                     int dimsize,
                     int stride)
 { // if set axis = 1, inputShape=[I,J,K,S]
@@ -224,7 +224,7 @@ __inline__ __device__ T WarpAllReduce(T val)
 }
 
 template <typename T, int BLOCK_DIM_x, int BLOCK_DIM_y, int numPerThreadx>
-__global__ void _warpSoftmaxKernel(T *__restrict input, T *__restrict output,
+__global__ void _warpSoftmaxKernel(T const *input, T *output,
                                    int othersize, int dimsize, int stride)
 {
     int otherIdx = blockIdx.x * blockDim.y + threadIdx.y;
@@ -276,9 +276,8 @@ __global__ void _warpSoftmaxKernel(T *__restrict input, T *__restrict output,
 }
 //-----------------
 template <typename T>
-void softmaxLaunch(T const *input, T *output, int size, int dimsize, int stride)
+void softmaxLaunch(void const *input, void *output, int size, int dimsize, int stride)
 {
-
     int num_blocks = size / dimsize;
 
     if (dimsize > 1024 * 128)
@@ -369,7 +368,11 @@ void softmaxLaunch(T const *input, T *output, int size, int dimsize, int stride)
     }
     cudaDeviceSynchronize();
 }
-extern "C" void softmax_nv_f32(float *input, float *output, int size, int dimsize, int stride)
+extern "C" void softmax_nv_f32(void const *input, void *output, int size, int dimsize, int stride)
 {
     softmaxLaunch<float>(input, output, size, dimsize, stride);
+}
+extern "C" void softmax_nv_f16(void const *input, void *output, int size, int dimsize, int stride)
+{
+    softmaxLaunch<half>(input, output, size, dimsize, stride);
 }
