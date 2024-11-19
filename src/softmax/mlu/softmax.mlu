@@ -963,7 +963,7 @@ extern "C" void softmax_bang_f32(void const *input, void *output, int othersize,
     CNRT_CHECK(cnrtQueueCreate(&queue));
     auto source = reinterpret_cast<const float *>(input);
     auto destination = reinterpret_cast<float *>(output);
-    softmaxUnion1<float>(queue, input, output, othersize, dimsize, frontsize, stride, axis, ndim);
+    softmaxUnion1<float>(queue, source, destination, othersize, dimsize, frontsize, stride, axis, ndim);
     CNRT_CHECK(cnrtQueueDestroy(queue));
 }
 extern "C" void softmax_bang_f16(void const *input, void *output, int othersize, int dimsize, int frontsize, int stride, int axis, int ndim) {
@@ -972,6 +972,6 @@ extern "C" void softmax_bang_f16(void const *input, void *output, int othersize,
     CNRT_CHECK(cnrtQueueCreate(&queue));
     auto source = reinterpret_cast<const half *>(input);
     auto destination = reinterpret_cast<half *>(output);
-    softmaxUnion1<half>(queue, input, output, othersize, dimsize, frontsize, stride, axis, ndim);
+    softmaxUnion1<half>(queue, source, destination, othersize, dimsize, frontsize, stride, axis, ndim);
     CNRT_CHECK(cnrtQueueDestroy(queue));
 }
