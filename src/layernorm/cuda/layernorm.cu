@@ -9,36 +9,36 @@ __launch_bounds__(BLOCK_DIM)
     // blockIdx.x = i(B) + j;默认behindsize >= BLOCK_DIM
     // scale,bias长度为behindsize,形状为[C,D]
     int tid = blockIdx.x * behindsize;
-    T muPartial = 0.0;
+    float muPartial = 0.0f;
     for (int id = threadIdx.x; id < behindsize; id += BLOCK_DIM)
     {
-        muPartial += input[tid + id];
+        muPartial += static_cast<float>(input[tid + id]); // half很多操作不支持，运算过程使用float数据
     }
-    typedef cub::BlockReduce<T, BLOCK_DIM> BlockReduce;
+    typedef cub::BlockReduce<float, BLOCK_DIM> BlockReduce;
     __shared__ typename BlockReduce::TempStorage temp_storage;
-    __shared__ T mu;
-    T muBlock = BlockReduce(temp_storage).Reduce(muPartial, cub::Sum());
+    __shared__ float mu;
+    float muBlock = BlockReduce(temp_storage).Reduce(muPartial, cub::Sum());
     if (threadIdx.x == 0)
     {
-        mu = muBlock * static_cast<T>(__fdividef(1.0F, behindsize));
+        mu = muBlock * __fdividef(1.0F, behindsize);
     } // threadIdx.x = 0对应的是全局sum
     __syncthreads();
-    T sigma2Partial = 0.0;
+    float sigma2Partial = 0.0f;
     for (int id = threadIdx.x; id < behindsize; id += BLOCK_DIM)
     {
-        sigma2Partial += (input[tid + id] - mu) * (input[tid + id] - mu);
+        sigma2Partial += (static_cast<float>(input[tid + id]) - mu) * (static_cast<float>(input[tid + id]) - mu);
     }
-    __shared__ T sigma2;
-    T sigma2Block = BlockReduce(temp_storage).Reduce(sigma2Partial, cub::Sum());
+    __shared__ float sigma2;
+    float sigma2Block = BlockReduce(temp_storage).Reduce(sigma2Partial, cub::Sum());
     if (threadIdx.x == 0)
     {
-        float sigmaTmp = sqrt(static_cast<float>(sigma2Block) * __fdividef(1.0F, behindsize) + eps);
-        sigma2 = static_cast<T>(__fdividef(1.0F, sigmaTmp));
+        float sigmaTmp = sqrt(sigma2Block * __fdividef(1.0F, behindsize) + eps);
+        sigma2 = __fdividef(1.0F, sigmaTmp);
     }
     __syncthreads();
     for (int id = threadIdx.x; id < behindsize; id += BLOCK_DIM)
     {
-        output[tid + id] = scale[id] * (input[tid + id] - mu) * sigma2 + bias[id];
+        output[tid + id] = static_cast<T>(static_cast<float>(scale[id]) * (static_cast<float>(input[tid + id]) - mu) * sigma2 + static_cast<float>(bias[id]));
     }
 }
 template <typename T>
@@ -66,36 +66,36 @@ __global__ void warpLayernormKernel(T const *input, T const *scale, T const *bia
     // 默认behindsize < 1024
     int otherIdx = blockIdx.x * blockDim.y + threadIdx.y;
     int tid = otherIdx * behindsize;
-    T muPartial = 0.0;
+    float muPartial = 0.0f;
     for (int id = threadIdx.x; id < behindsize; id += BLOCK_DIM_x)
     {
-        muPartial += input[tid + id];
+        muPartial += static_cast<float>(input[tid + id]);
     }
-    muPartial = WarpAllReduce<SumOp, T, BLOCK_DIM_x>(muPartial);
-    __shared__ T mu[BLOCK_DIM_y];
+    muPartial = WarpAllReduce<SumOp, float, BLOCK_DIM_x>(muPartial);
+    __shared__ float mu[BLOCK_DIM_y];
 
     if (threadIdx.x == 0)
     {
-        mu[threadIdx.y] = muPartial * static_cast<T>(__fdividef(1.0F, behindsize));
+        mu[threadIdx.y] = muPartial * __fdividef(1.0F, behindsize);
     } // threadIdx.x = 0对应的是全局sum
     __syncthreads();
-    T sigma2Partial = 0.0;
+    float sigma2Partial = 0.0f;
     for (int id = threadIdx.x; id < behindsize; id += BLOCK_DIM_x)
     {
-        sigma2Partial += (input[tid + id] - mu[threadIdx.y]) * (input[tid + id] - mu[threadIdx.y]);
+        sigma2Partial += (static_cast<float>(input[tid + id]) - mu[threadIdx.y]) * (static_cast<float>(input[tid + id]) - mu[threadIdx.y]);
     }
-    sigma2Partial = WarpAllReduce<SumOp, T, BLOCK_DIM_x>(sigma2Partial);
-    __shared__ T sigma2[BLOCK_DIM_y];
+    sigma2Partial = WarpAllReduce<SumOp, float, BLOCK_DIM_x>(sigma2Partial);
+    __shared__ float sigma2[BLOCK_DIM_y];
 
     if (threadIdx.x == 0)
     {
-        float sigmaTmp = sqrt(static_cast<float>(sigma2Partial) * __fdividef(1.0F, behindsize) + eps);
-        sigma2[threadIdx.y] = static_cast<T>(__fdividef(1.0F, sigmaTmp));
+        float sigmaTmp = sqrt(sigma2Partial * __fdividef(1.0F, behindsize) + eps);
+        sigma2[threadIdx.y] = __fdividef(1.0F, sigmaTmp);
     }
     __syncthreads();
     for (int id = threadIdx.x; id < behindsize; id += BLOCK_DIM_x)
     {
-        output[tid + id] = scale[id] * (input[tid + id] - mu[threadIdx.y]) * sigma2[threadIdx.y] + bias[id];
+        output[tid + id] = static_cast<T>(static_cast<float>(scale[id]) * (static_cast<float>(input[tid + id]) - mu[threadIdx.y]) * sigma2[threadIdx.y] + static_cast<float>(bias[id]));
     }
 }
 template <typename T>
@@ -107,7 +107,7 @@ void layernormLaunch(void const *input, void const *scale, void const *bias, voi
     {
         int BLOCK_DIM = 1024;
         blockLayernormKernel<T, 1024>
-            <<<num_blocks, BLOCK_DIM>>>((T const *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
+            <<<num_blocks, BLOCK_DIM>>>((T *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
     }
     else if (behindsize > 31)
     {
@@ -118,7 +118,7 @@ void layernormLaunch(void const *input, void const *scale, void const *bias, voi
         dim3 grid_dim(num_block_x, 1, 1);
 
         warpLayernormKernel<T, 32, 32>
-            <<<grid_dim, block_dim>>>((T const *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
+            <<<grid_dim, block_dim>>>((T *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
     }
     else if (behindsize > 15)
     {
@@ -129,7 +129,7 @@ void layernormLaunch(void const *input, void const *scale, void const *bias, voi
         dim3 grid_dim(num_block_x, 1, 1);
 
         warpLayernormKernel<T, 16, 64>
-            <<<grid_dim, block_dim>>>((T const *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
+            <<<grid_dim, block_dim>>>((T *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
     }
     else if (behindsize > 7)
     {
@@ -140,7 +140,7 @@ void layernormLaunch(void const *input, void const *scale, void const *bias, voi
         dim3 grid_dim(num_block_x, 1, 1);
 
         warpLayernormKernel<T, 8, 128>
-            <<<grid_dim, block_dim>>>((T const *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
+            <<<grid_dim, block_dim>>>((T *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
     }
     else
     {
@@ -151,7 +151,7 @@ void layernormLaunch(void const *input, void const *scale, void const *bias, voi
         dim3 grid_dim(num_block_x, 1, 1);
 
         warpLayernormKernel<T, 4, 256>
-            <<<grid_dim, block_dim>>>((T const *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
+            <<<grid_dim, block_dim>>>((T *)input, (T *)scale, (T *)bias, (T *)output, eps, behindsize);
     }
     cudaDeviceSynchronize();
 }
@@ -159,7 +159,7 @@ extern "C" void layernorm_nv_f32(void const *input, void const *scale, void cons
 {
     layernormLaunch<float>(input, scale, bias, output, eps, size, behindsize);
 }
-// extern "C" void layernorm_nv_f16(void const *input, void const *scale, void const *bias, void *output, float eps, int size, int behindsize)
-// {
-//     layernormLaunch<half>(input, scale, bias, output, eps, size, behindsize);
-// }
+extern "C" void layernorm_nv_f16(void const *input, void const *scale, void const *bias, void *output, float eps, int size, int behindsize)
+{
+    layernormLaunch<half>(input, scale, bias, output, eps, size, behindsize);
+}

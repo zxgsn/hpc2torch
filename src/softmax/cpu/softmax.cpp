@@ -5,10 +5,11 @@ template <typename T>
 void softmax_cpu(void const *input, void *output, int size, int dimsize, int stride)
 {
     int othersize = size / dimsize;
+    auto source = reinterpret_cast<const T *>(input);
+    auto destination = reinterpret_cast<T *>(output);
     if (sizeof(T) == 4)
     {
-        auto source = reinterpret_cast<const float *>(input);
-        auto destination = reinterpret_cast<float *>(output);
+
         // 假设[I, J, K, S], axis = 1, othersize = IKS
         for (int ind = 0; ind < othersize; ind++)
         {                                                            // ind = i(KS) + k(S) + s
@@ -34,8 +35,6 @@ void softmax_cpu(void const *input, void *output, int size, int dimsize, int str
     }
     else if (sizeof(T) == 2)
     {
-        auto source = reinterpret_cast<const uint16_t *>(input);
-        auto destination = reinterpret_cast<uint16_t *>(output);
         // 假设[I, J, K, S], axis = 1, othersize = IKS
         for (int ind = 0; ind < othersize; ind++)
         {                                                            // ind = i(KS) + k(S) + s

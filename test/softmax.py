@@ -30,7 +30,7 @@ def test(test_shape, test_axis, test_dtype, device):
         f"Testing Softmax on {device} with x_shape:{test_shape} , axis:{test_axis} ,dtype:{test_dtype}"
     )
     size, stride, dimsize = dataPrew(test_shape, test_axis)
-    Q = torch.randn(test_shape, device=device, dtype=test_dtype, requires_grad=False)
+    Q = torch.rand(test_shape, device=device, dtype=test_dtype, requires_grad=False)
     Q_output = torch.zeros(test_shape, device=device, dtype=torch.float32) 
 
     input_ptr = ctypes.cast(Q.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
@@ -123,8 +123,8 @@ def test(test_shape, test_axis, test_dtype, device):
             custom_softmax_time = performance.BangProfile((lib.softmax_bang_f16, (input_ptr, output_ptr, othersize, dimsize, frontsize, stride, test_axis, ndim)))  # 以毫秒为单位
     performance.logBenchmark(torch_softmax_time, custom_softmax_time)
     # 将结果转换回 PyTorch 张量以进行比较
-    tmpa = torch.softmax(Q, test_axis).to('cpu').reshape(-1,1).numpy().flatten()
-    tmpb = Q_output.to('cpu').reshape(-1,1).numpy().flatten()
+    tmpa = torch.softmax(Q, test_axis).to('cpu').numpy().flatten()
+    tmpb = Q_output.to('cpu').numpy().flatten()
 
     atol = max(abs(tmpa - tmpb))
 

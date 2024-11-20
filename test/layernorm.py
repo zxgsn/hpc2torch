@@ -39,7 +39,7 @@ def test(test_shape, axis, test_dtype, eps, device):
     layer_norm = nn.LayerNorm(normlize_shape, elementwise_affine=True, eps = eps)
     layer_norm.weight.data = scale
     layer_norm.bias.data = bias
-    output = layer_norm.forward(input)
+    
     if test_dtype == torch.float32:
         if device == "cuda":
             torch_layernorm_time = performance.CudaProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
@@ -53,7 +53,23 @@ def test(test_shape, axis, test_dtype, eps, device):
                 ctypes.c_int
             ]
             custom_layernorm_time = \
-            performance.CudaProfile((lib.layernorm_nv_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))  # 以毫秒为单位
+            performance.CudaProfile((lib.layernorm_nv_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
+        if device == "cpu":
+            
+            torch_layernorm_time = performance.CpuProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
+            lib.layernorm_cpu_f32.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_float,
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            
+            custom_layernorm_time = \
+            performance.CpuProfile((lib.layernorm_cpu_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
+            
     if test_dtype == torch.float16:
         if device == "cuda":
             torch_layernorm_time = performance.CudaProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
@@ -68,11 +84,27 @@ def test(test_shape, axis, test_dtype, eps, device):
             ]
             custom_layernorm_time = \
             performance.CudaProfile((lib.layernorm_nv_f16, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
+        if device == "cpu":
+            torch_layernorm_time = performance.CpuProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
+            lib.layernorm_cpu_f16.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_float,
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            custom_layernorm_time = \
+            performance.CpuProfile((lib.layernorm_cpu_f16, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
+    
     performance.logBenchmark(torch_layernorm_time, custom_layernorm_time)
-    # 将结果转换回 PyTorch 张量以进行比较
-    tmpa = layer_norm(input).to('cpu').detach().numpy().flatten().reshape(-1,1)
-    tmpb = output.to('cpu').detach().numpy().flatten().reshape(-1,1)
 
+    # 将结果转换回 PyTorch 张量以进行比较
+    tmpa = layer_norm.forward(input).to('cpu').detach().numpy().flatten()
+    
+    tmpb = output.to('cpu').detach().numpy().flatten()
+    
     atol = max(abs(tmpa - tmpb))
 
     rtol = atol / max(abs(tmpb) + 1e-8)
@@ -95,6 +127,14 @@ test_cases = [
         ((700, 1200, 24), 1, torch.float16, 1e-5, 'cuda'),
         ((700, 1200, 24), 0, torch.float16, 1e-5, 'cuda'),
         ((700, 1200, 24), 2, torch.float16, 1e-5, 'cuda'),
+
+        ((7, 12, 24), 1, torch.float32, 1e-5, 'cpu'),
+        ((7, 12, 24), 0, torch.float32, 1e-5, 'cpu'),
+        ((7, 12, 24), 2, torch.float32, 1e-5, 'cpu'),
+
+        ((7, 12, 24), 1, torch.float16, 1e-5, 'cpu'),
+        ((7, 12, 24), 0, torch.float16, 1e-5, 'cpu'),
+        ((7, 12, 24), 2, torch.float16, 1e-5, 'cpu'),
          
 ]
 filtered_test_cases = [

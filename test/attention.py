@@ -51,8 +51,8 @@ def test(test_shape, test_dtype, device):
         performance.logBenchmark(torch_flash_time, custom_attention_time)
 
     # 将结果转换回 PyTorch 张量以进行比较
-    tmpa = funAttention(Q, K, V).to('cpu').numpy().reshape(-1,1).flatten()
-    tmpb = attHPC.to('cpu').numpy().reshape(-1,1).flatten()
+    tmpa = funAttention(Q, K, V).to('cpu').numpy().flatten()
+    tmpb = attHPC.to('cpu').numpy().flatten()
     atol = max(abs(tmpa - tmpb))
 
     rtol = atol / max(abs(tmpb) + 1e-8)
