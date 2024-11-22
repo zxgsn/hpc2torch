@@ -903,8 +903,9 @@ __mlu_global__ void softmaxKernelAxis_m(T *destination, T const *source, int fro
 }
 
 template<typename T>
-void softmaxUnion1(cnrtQueue_t queue, T const *input, T *output, int othersize, int dimsize, int frontsize, int stride, int axis, int ndim) {
-    
+void softmaxUnion1(cnrtQueue_t queue, void const *input, void *output, int othersize, int dimsize, int frontsize, int stride, int axis, int ndim) {
+    auto source = reinterpret_cast<const T *>(input);
+    auto destination = reinterpret_cast<T *>(output);
     const int wSize = 128 / sizeof(T);
 
     cnrtDim3_t k_dim;
@@ -932,12 +933,12 @@ void softmaxUnion1(cnrtQueue_t queue, T const *input, T *output, int othersize, 
         {
             dimS = wSize;
         }
-        softmaxKernelAxis_e<T><<<k_dim, k_type, queue>>>(output, input, othersize, dimsize, dimS);
+        softmaxKernelAxis_e<T><<<k_dim, k_type, queue>>>(destination, source, othersize, dimsize, dimS);
     }
     else if(axis == 0){
         T *tmpGdram;
         CNRT_CHECK(cnrtMalloc((void **)&tmpGdram, taskNum * othersize * sizeof(T)));
-        softmaxKernelAxis_s<T><<<k_dim, k_type, queue>>>(output, input, tmpGdram, othersize, dimsize, stride);
+        softmaxKernelAxis_s<T><<<k_dim, k_type, queue>>>(destination, source, tmpGdram, othersize, dimsize, stride);
         cnrtFree(tmpGdram);
     }
     else{
@@ -949,7 +950,7 @@ void softmaxUnion1(cnrtQueue_t queue, T const *input, T *output, int othersize, 
         else{
             strideS = static_cast<int>(pow(2,floor(mi) + 1));
         }
-        softmaxKernelAxis_m<T><<<k_dim, k_type, queue>>>(output, input, frontsize, dimsize, stride, strideS);
+        softmaxKernelAxis_m<T><<<k_dim, k_type, queue>>>(destination, source, frontsize, dimsize, stride, strideS);
     }
         
     cnrtQueueSync(queue);
@@ -961,17 +962,13 @@ extern "C" void softmax_bang_f32(void const *input, void *output, int othersize,
     cnrtQueue_t queue;
     CNRT_CHECK(cnrtSetDevice(0));
     CNRT_CHECK(cnrtQueueCreate(&queue));
-    auto source = reinterpret_cast<const float *>(input);
-    auto destination = reinterpret_cast<float *>(output);
-    softmaxUnion1<float>(queue, source, destination, othersize, dimsize, frontsize, stride, axis, ndim);
+    softmaxUnion1<float>(queue, input, output, othersize, dimsize, frontsize, stride, axis, ndim);
     CNRT_CHECK(cnrtQueueDestroy(queue));
 }
 extern "C" void softmax_bang_f16(void const *input, void *output, int othersize, int dimsize, int frontsize, int stride, int axis, int ndim) {
     cnrtQueue_t queue;
     CNRT_CHECK(cnrtSetDevice(0));
     CNRT_CHECK(cnrtQueueCreate(&queue));
-    auto source = reinterpret_cast<const half *>(input);
-    auto destination = reinterpret_cast<half *>(output);
-    softmaxUnion1<half>(queue, source, destination, othersize, dimsize, frontsize, stride, axis, ndim);
+    softmaxUnion1<half>(queue, input, output, othersize, dimsize, frontsize, stride, axis, ndim);
     CNRT_CHECK(cnrtQueueDestroy(queue));
 }

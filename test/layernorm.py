@@ -26,10 +26,10 @@ def test(test_shape, axis, test_dtype, eps, device):
         size *= test_shape[i]
         if (i >= axis):
             behindsize *= test_shape[i]
-    input = torch.randn(test_shape, device=device, dtype=test_dtype, requires_grad=False)
-    scale = torch.randn(normlize_shape, device=device, dtype=test_dtype, requires_grad=False)
-    bias = torch.randn(normlize_shape, device=device, dtype=test_dtype, requires_grad=False)
-    output = torch.randn(test_shape, device=device, dtype=test_dtype, requires_grad=False)
+    input = torch.rand(test_shape, device=device, dtype=test_dtype, requires_grad=False)
+    scale = torch.rand(normlize_shape, device=device, dtype=test_dtype, requires_grad=False)
+    bias = torch.rand(normlize_shape, device=device, dtype=test_dtype, requires_grad=False)
+    output = torch.rand(test_shape, device=device, dtype=test_dtype, requires_grad=False)
 
     input_ptr = ctypes.cast(input.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     scale_ptr = ctypes.cast(scale.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
@@ -55,7 +55,6 @@ def test(test_shape, axis, test_dtype, eps, device):
             custom_layernorm_time = \
             performance.CudaProfile((lib.layernorm_nv_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
         if device == "cpu":
-            
             torch_layernorm_time = performance.CpuProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
             lib.layernorm_cpu_f32.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),
@@ -66,9 +65,21 @@ def test(test_shape, axis, test_dtype, eps, device):
                 ctypes.c_int,
                 ctypes.c_int
             ]
-            
             custom_layernorm_time = \
             performance.CpuProfile((lib.layernorm_cpu_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
+        if device == "mlu":
+            torch_layernorm_time = performance.BangProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
+            lib.layernorm_bang_f32.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_float,
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            custom_layernorm_time = \
+            performance.BangProfile((lib.layernorm_bang_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
             
     if test_dtype == torch.float16:
         if device == "cuda":
@@ -97,7 +108,19 @@ def test(test_shape, axis, test_dtype, eps, device):
             ]
             custom_layernorm_time = \
             performance.CpuProfile((lib.layernorm_cpu_f16, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
-    
+        if device == "mlu":
+            torch_layernorm_time = performance.BangProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
+            lib.layernorm_bang_f16.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_float,
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            custom_layernorm_time = \
+            performance.BangProfile((lib.layernorm_bang_f16, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
     performance.logBenchmark(torch_layernorm_time, custom_layernorm_time)
 
     # 将结果转换回 PyTorch 张量以进行比较
@@ -127,6 +150,14 @@ test_cases = [
         ((700, 1200, 24), 1, torch.float16, 1e-5, 'cuda'),
         ((700, 1200, 24), 0, torch.float16, 1e-5, 'cuda'),
         ((700, 1200, 24), 2, torch.float16, 1e-5, 'cuda'),
+
+        ((700, 1200, 24), 1, torch.float32, 1e-5, 'mlu'),
+        ((700, 1200, 24), 0, torch.float32, 1e-5, 'mlu'),
+        ((700, 1200, 24), 2, torch.float32, 1e-5, 'mlu'),
+
+        ((700, 1200, 24), 1, torch.float16, 1e-5, 'mlu'),
+        ((700, 1200, 24), 0, torch.float16, 1e-5, 'mlu'),
+        ((700, 1200, 24), 2, torch.float16, 1e-5, 'mlu'),
 
         ((7, 12, 24), 1, torch.float32, 1e-5, 'cpu'),
         ((7, 12, 24), 0, torch.float32, 1e-5, 'cpu'),
