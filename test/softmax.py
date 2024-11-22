@@ -59,6 +59,7 @@ def test(test_shape, test_axis, test_dtype, device):
         if device == "mlu":
             torch_softmax_time = performance.BangProfile((torch.softmax, (Q, test_axis)))  # 以毫秒为单位
             ndim = len(test_shape)
+            '''
             frontsize = 1
             othersize = 1
             for s in range(ndim - 1, -1, -1):
@@ -77,7 +78,19 @@ def test(test_shape, test_axis, test_dtype, device):
                 ctypes.c_int,
                 ctypes.c_int
             ]
-            custom_softmax_time = performance.BangProfile((lib.softmax_bang_f32, (input_ptr, output_ptr, othersize, dimsize, frontsize, stride, test_axis, ndim)))  # 以毫秒为单位
+            custom_softmax_time = performance.BangProfile((lib.softmax_bang_f32, (input_ptr, output_ptr, othersize, dimsize, frontsize, stride, test_axis, ndim)))
+            '''
+            lib.softmax_cnnl_f32.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.POINTER(ctypes.c_int)
+            ]
+            import numpy as np
+            np_array = np.zeros(test_shape, dtype=np.int32)
+            ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+            custom_softmax_time = performance.BangProfile((lib.softmax_cnnl_f32, (input_ptr, output_ptr, ndim, test_axis, ctypes_array)))
     elif test_dtype == torch.float16:
         if device == "cuda":
             torch_softmax_time = performance.CudaProfile((torch.softmax, (Q, test_axis)))  # 以毫秒为单位
@@ -102,6 +115,7 @@ def test(test_shape, test_axis, test_dtype, device):
         if device == "mlu":
             torch_softmax_time = performance.BangProfile((torch.softmax, (Q, test_axis)))  # 以毫秒为单位
             ndim = len(test_shape)
+            '''
             frontsize = 1
             othersize = 1
             for s in range(ndim - 1, -1, -1):
@@ -120,7 +134,19 @@ def test(test_shape, test_axis, test_dtype, device):
                 ctypes.c_int,
                 ctypes.c_int
             ]
-            custom_softmax_time = performance.BangProfile((lib.softmax_bang_f16, (input_ptr, output_ptr, othersize, dimsize, frontsize, stride, test_axis, ndim)))  # 以毫秒为单位
+            custom_softmax_time = performance.BangProfile((lib.softmax_bang_f16, (input_ptr, output_ptr, othersize, dimsize, frontsize, stride, test_axis, ndim))) 
+            '''
+            lib.softmax_cnnl_f16.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.POINTER(ctypes.c_int)
+            ]
+            import numpy as np
+            np_array = np.zeros(test_shape, dtype=np.int32)
+            ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+            custom_softmax_time = performance.BangProfile((lib.softmax_cnnl_f16, (input_ptr, output_ptr, ndim, test_axis, ctypes_array)))
     performance.logBenchmark(torch_softmax_time, custom_softmax_time)
     # 将结果转换回 PyTorch 张量以进行比较
     tmpa = torch.softmax(Q, test_axis).to('cpu').numpy().flatten()

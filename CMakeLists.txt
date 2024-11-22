@@ -26,7 +26,10 @@ file(GLOB CPP_SOURCE_FILES "src/**/cpu/*.cpp")
 list(APPEND CPP_SOURCE_FILES ${INCLUDE_SOURCE_FILES})
 
 file(GLOB CUDA_SOURCE_FILES "src/**/cuda/*.cu")
-file(GLOB BANG_SOURCE_FILES "src/**/mlu/*.mlu")
+# 查找所有 .mlu, .cpp 文件 
+file(GLOB BANG_MLU_FILES "src/**/mlu/*.mlu")
+file(GLOB BANG_CNNL_FILES "src/**/mlu/*.cpp")
+list(APPEND BANG_SOURCE_FILES ${BANG_MLU_FILES} ${BANG_CNNL_FILES})
 
 # 根据选项决定编译哪些源文件
 if(USE_CUDA)
