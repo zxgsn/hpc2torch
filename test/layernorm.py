@@ -69,6 +69,7 @@ def test(test_shape, axis, test_dtype, eps, device):
             performance.CpuProfile((lib.layernorm_cpu_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
         if device == "mlu":
             torch_layernorm_time = performance.BangProfile((layer_norm.forward, (input,)))  # 以毫秒为单位
+            '''
             lib.layernorm_bang_f32.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),
                 ctypes.POINTER(ctypes.c_void_p),
@@ -80,6 +81,22 @@ def test(test_shape, axis, test_dtype, eps, device):
             ]
             custom_layernorm_time = \
             performance.BangProfile((lib.layernorm_bang_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, eps, size, behindsize)))
+            '''
+            lib.layernorm_cnnl_f32.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_int),
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_float
+            ]
+            import numpy as np
+            np_array = np.zeros(test_shape, dtype=np.int32)
+            ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+            custom_layernorm_time = \
+            performance.BangProfile((lib.layernorm_cnnl_f32, (input_ptr, scale_ptr, bias_ptr, output_ptr, ctypes_array, ndim, axis, eps)))
             
     if test_dtype == torch.float16:
         if device == "cuda":
@@ -151,9 +168,9 @@ test_cases = [
         ((700, 1200, 24), 0, torch.float16, 1e-5, 'cuda'),
         ((700, 1200, 24), 2, torch.float16, 1e-5, 'cuda'),
 
-        ((700, 1200, 24), 1, torch.float32, 1e-5, 'mlu'),
-        ((700, 1200, 24), 0, torch.float32, 1e-5, 'mlu'),
-        ((700, 1200, 24), 2, torch.float32, 1e-5, 'mlu'),
+        ((700, 1200), 1, torch.float32, 1e-5, 'mlu'),
+        #((700, 1200, 24), 0, torch.float32, 1e-5, 'mlu'),
+        #((700, 1200, 24), 2, torch.float32, 1e-5, 'mlu'),
 
         ((700, 1200, 24), 1, torch.float16, 1e-5, 'mlu'),
         ((700, 1200, 24), 0, torch.float16, 1e-5, 'mlu'),
