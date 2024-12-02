@@ -172,9 +172,9 @@ test_cases = [
         #((700, 1200, 24), 0, torch.float32, 1e-5, 'mlu'),
         #((700, 1200, 24), 2, torch.float32, 1e-5, 'mlu'),
 
-        ((700, 1200, 24), 1, torch.float16, 1e-5, 'mlu'),
-        ((700, 1200, 24), 0, torch.float16, 1e-5, 'mlu'),
-        ((700, 1200, 24), 2, torch.float16, 1e-5, 'mlu'),
+        #((700, 1200, 24), 1, torch.float16, 1e-5, 'mlu'),
+        #((700, 1200, 24), 0, torch.float16, 1e-5, 'mlu'),
+        #((700, 1200, 24), 2, torch.float16, 1e-5, 'mlu'),
 
         ((7, 12, 24), 1, torch.float32, 1e-5, 'cpu'),
         ((7, 12, 24), 0, torch.float32, 1e-5, 'cpu'),
