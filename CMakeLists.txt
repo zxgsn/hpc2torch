@@ -25,7 +25,11 @@ file(GLOB INCLUDE_SOURCE_FILES "include/**.cpp")
 file(GLOB CPP_SOURCE_FILES "src/**/cpu/*.cpp")
 list(APPEND CPP_SOURCE_FILES ${INCLUDE_SOURCE_FILES})
 
-file(GLOB CUDA_SOURCE_FILES "src/**/cuda/*.cu")
+
+file(GLOB GPU_CUDA_FILES "src/**/gpu/*.cu")
+file(GLOB GPU_CUDNN_FILES "src/**/gpu/*.cpp")
+list(APPEND CUDA_SOURCE_FILES ${GPU_CUDA_FILES} ${GPU_CUDNN_FILES})
+
 # 查找所有 .mlu, .cpp 文件 
 file(GLOB BANG_MLU_FILES "src/**/mlu/*.mlu")
 file(GLOB BANG_CNNL_FILES "src/**/mlu/*.cpp")
@@ -38,6 +42,8 @@ if(USE_CUDA)
     enable_language(CUDA)
     list(APPEND ALL_SOURCE_FILES ${CUDA_SOURCE_FILES} ${CPP_SOURCE_FILES})
     add_library(my_library SHARED ${ALL_SOURCE_FILES})# 创建库或可执行文件
+    target_link_libraries(my_library cudnn)#如果调用cudnn库需要链接cudnn
+
 elseif(USE_BANG)
     message(STATUS "BANG build enabled.")
     
