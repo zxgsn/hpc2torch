@@ -17,6 +17,7 @@ void layernormCnnlDevice(void const *source, void const *weight, void const *bia
     std::vector<int> outDim(nDim);
     std::vector<int> filter_biasDim(nDim - axis);
     std::vector<int> mean_rstdDim(axis);
+    int mean_rstd_size = 1;
     for (int i = 0; i < nDim; i++) {
         inDim[i] = shape[i];
         outDim[i] = shape[i];
@@ -25,40 +26,37 @@ void layernormCnnlDevice(void const *source, void const *weight, void const *bia
         }
         else{
             mean_rstdDim[i] = shape[i];
+            mean_rstd_size *= shape[i];
         }
     }
     
+    size_t dtype_size = 0;
+    cnnlDataType_t dataType;
     if(sizeof(T) == 2){
-        cnnlSetTensorDescriptor(
-            xDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            inDim.size(), inDim.data());
-        cnnlSetTensorDescriptor(
-            yDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            outDim.size(), outDim.data());
-        cnnlSetTensorDescriptor(
-            filter_bias_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            filter_biasDim.size(), filter_biasDim.data());
-        cnnlSetTensorDescriptor(
-            mean_rstd_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            mean_rstdDim.size(), mean_rstdDim.data());
-       
+        dataType = CNNL_DTYPE_HALF;
     }
     else if(sizeof(T) == 4){
-        cnnlSetTensorDescriptor(
-            xDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            inDim.size(), inDim.data());
-        cnnlSetTensorDescriptor(
-            yDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            outDim.size(), outDim.data());
-        cnnlSetTensorDescriptor(
-            filter_bias_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            filter_biasDim.size(), filter_biasDim.data());
-        cnnlSetTensorDescriptor(
-            mean_rstd_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            mean_rstdDim.size(), mean_rstdDim.data());
-        
+        dataType = CNNL_DTYPE_FLOAT;
     }
-
+    cnnlGetSizeOfDataType(dataType, &dtype_size);
+    cnnlSetTensorDescriptor(
+        xDesc, CNNL_LAYOUT_ARRAY, dataType,
+        inDim.size(), inDim.data());
+    cnnlSetTensorDescriptor(
+        yDesc, CNNL_LAYOUT_ARRAY, dataType,
+        outDim.size(), outDim.data());
+    cnnlSetTensorDescriptor(
+        filter_bias_desc, CNNL_LAYOUT_ARRAY, dataType,
+        filter_biasDim.size(), filter_biasDim.data());
+    cnnlSetTensorDescriptor(
+        mean_rstd_desc, CNNL_LAYOUT_ARRAY, dataType,
+        mean_rstdDim.size(), mean_rstdDim.data());
+    
+    T *mean_dev, *rstd_dev;
+    size_t size_mean_rstd = (size_t)mean_rstd_size * dtype_size;
+    
+    CNRT_CHECK(cnrtMalloc((void **)&mean_dev, size_mean_rstd));
+    CNRT_CHECK(cnrtMalloc((void **)&rstd_dev, size_mean_rstd));
     size_t wsSize;
     cnnlGetLayerNormOpWorkspaceSize(handle, axis, xDesc, &wsSize);
 
@@ -77,13 +75,15 @@ void layernormCnnlDevice(void const *source, void const *weight, void const *bia
                         yDesc,
                         destination,
                         mean_rstd_desc,
-                        nullptr,
-                        nullptr);
+                        mean_dev,
+                        rstd_dev);
     
 
     CNRT_CHECK(cnrtQueueSync(queue));
 
     cnrtFree(workspace);
+    cnrtFree(mean_dev);
+    cnrtFree(rstd_dev);
     
     cnnlDestroyTensorDescriptor(xDesc);
     cnnlDestroyTensorDescriptor(yDesc);

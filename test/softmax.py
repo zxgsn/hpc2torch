@@ -89,7 +89,7 @@ def test(test_shape, test_axis, test_dtype, device):
                 ctypes.POINTER(ctypes.c_int)
             ]
             import numpy as np
-            np_array = np.zeros(test_shape, dtype=np.int32)
+            np_array = np.array(test_shape, dtype=np.int32)
             ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
             custom_softmax_time = performance.BangProfile((lib.softmax_cnnl_f32, (input_ptr, output_ptr, ndim, test_axis, ctypes_array)))
     elif test_dtype == torch.float16:
@@ -106,7 +106,7 @@ def test(test_shape, test_axis, test_dtype, device):
             custom_softmax_time = performance.CudaProfile((lib.softmax_nv_f16, (input_ptr, output_ptr, size, dimsize, stride))) 
             '''
             import numpy as np
-            np_array = np.zeros(test_shape, dtype=np.int32)
+            np_array = np.array(test_shape, dtype=np.int32)
             ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
             lib.softmax_cudnn_f16.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),
@@ -157,7 +157,7 @@ def test(test_shape, test_axis, test_dtype, device):
                 ctypes.POINTER(ctypes.c_int)
             ]
             import numpy as np
-            np_array = np.zeros(test_shape, dtype=np.int32)
+            np_array = np.array(test_shape, dtype=np.int32)
             ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
             custom_softmax_time = performance.BangProfile((lib.softmax_cnnl_f16, (input_ptr, output_ptr, ndim, test_axis, ctypes_array)))
     performance.logBenchmark(torch_softmax_time, custom_softmax_time)

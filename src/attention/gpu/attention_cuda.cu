@@ -362,7 +362,6 @@ __global__ void _attentionKernel(const float *__restrict inputQ,
 
 extern "C" void attention_nv_f32(void const *inputQ, void const *inputK, void const *inputV, int N, int d, void *output)
 {
-
     int num_block_x = (d + Rv * Bc - 1) / (Rv * Bc);
     int num_block_y = (N + Rq * Br - 1) / (Rq * Br);
     dim3 grid_dim(num_block_x, num_block_y, 1);

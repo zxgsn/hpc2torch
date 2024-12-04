@@ -17,19 +17,15 @@ def get_mean_variance(x, dtype):
     return x.mean(dim=reduction_dims, dtype=dtype), x.var(
         dim=reduction_dims, unbiased=False
     ).to(dtype)
-'''
+
 def batch_norm(x, scale, b, mean, var, eps):
     ndim = len(x.shape)
     if ndim <= 1 or ndim > 5:
         print("Error: Pytorch -> Unsupported tensor dimension")
         return None
     return F.batch_norm(x, mean, var, scale, b, training=False, eps=eps)
-'''
-def batch_norm(x, scale, b, mean, var, eps):
-    y = torch.zeros_like(x)
-    for c in range(x.shape[1]):
-        y[:,c] = scale[c] * (x[:,c] - mean[c]) / torch.sqrt(var[c] + eps) + b[c]
-    return y
+
+
 def test(test_shape, test_dtype, eps, device):
     print(
         f"Testing Batchnorm on {device} with test_shape:{test_shape}, dtype:{test_dtype}, eps:{eps}"
@@ -40,7 +36,7 @@ def test(test_shape, test_dtype, eps, device):
     scale = torch.rand(cSize, device=device, dtype=test_dtype, requires_grad=False)
     bias = torch.rand(cSize, device=device, dtype=test_dtype, requires_grad=False)
     mean, var = get_mean_variance(input, test_dtype)
-    print(mean, var)
+    
     output = torch.rand(test_shape, device=device, dtype=test_dtype, requires_grad=False)
 
     input_ptr = ctypes.cast(input.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
@@ -49,12 +45,17 @@ def test(test_shape, test_dtype, eps, device):
     mean_ptr = ctypes.cast(mean.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     var_ptr = ctypes.cast(var.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     output_ptr = ctypes.cast(output.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
+
+    import numpy as np
+    np_array = np.array(test_shape, dtype=np.int32)
+    shape = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+    
     
     if test_dtype == torch.float32:
         
         if device == "mlu":
             torch_batchnorm_time = performance.BangProfile((batch_norm, (input, scale, bias, mean, var, eps)))  # 以毫秒为单位
-        
+            '''
             lib.batchnorm_cnnl_f32.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),
                 ctypes.POINTER(ctypes.c_void_p),
@@ -65,19 +66,29 @@ def test(test_shape, test_dtype, eps, device):
                 ctypes.POINTER(ctypes.c_int),
                 ctypes.c_int,
                 ctypes.c_float
-            ]
-            import numpy as np
-            np_array = np.zeros(test_shape, dtype=np.int32)
-            ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
-            
+            ]           
             custom_batchnorm_time = \
-            performance.BangProfile((lib.batchnorm_cnnl_f32, (input_ptr, scale_ptr, bias_ptr, mean_ptr, var_ptr, output_ptr, ctypes_array, ndim, eps)))
+            performance.BangProfile((lib.batchnorm_cnnl_f32, (input_ptr, scale_ptr, bias_ptr, mean_ptr, var_ptr, output_ptr, shape, ndim, eps)))
+            '''
+            lib.batchnorm_bang_f32.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_int),
+                ctypes.c_int,
+                ctypes.c_float
+            ]           
+            custom_batchnorm_time = \
+            performance.BangProfile((lib.batchnorm_bang_f32, (input_ptr, scale_ptr, bias_ptr, mean_ptr, var_ptr, output_ptr, shape, ndim, eps)))
             
     if test_dtype == torch.float16:
         
         if device == "mlu":
             torch_batchnorm_time = performance.BangProfile((batch_norm, (input, scale, bias, mean, var, eps)))  # 以毫秒为单位
-
+            
             lib.batchnorm_cnnl_f16.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),
                 ctypes.POINTER(ctypes.c_void_p),
@@ -89,13 +100,23 @@ def test(test_shape, test_dtype, eps, device):
                 ctypes.c_int,
                 ctypes.c_float
             ]
-            import numpy as np
-            np_array = np.zeros(test_shape, dtype=np.int32)
-            ctypes_array = np_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
-            
             custom_batchnorm_time = \
-            performance.BangProfile((lib.batchnorm_cnnl_f16, (input_ptr, scale_ptr, bias_ptr, mean_ptr, var_ptr, output_ptr, ctypes_array, ndim,eps)))
-            
+            performance.BangProfile((lib.batchnorm_cnnl_f16, (input_ptr, scale_ptr, bias_ptr, mean_ptr, var_ptr, output_ptr, shape, ndim,eps)))
+            '''
+            lib.batchnorm_bang_f16.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(ctypes.c_int),
+                ctypes.c_int,
+                ctypes.c_float
+            ]           
+            custom_batchnorm_time = \
+            performance.BangProfile((lib.batchnorm_bang_f16, (input_ptr, scale_ptr, bias_ptr, mean_ptr, var_ptr, output_ptr, shape, ndim, eps)))
+            '''
     performance.logBenchmark(torch_batchnorm_time, custom_batchnorm_time)
 
     # 将结果转换回 PyTorch 张量以进行比较
@@ -117,11 +138,8 @@ parser = argparse.ArgumentParser(description="Test batchnorm on different device
 parser.add_argument('--device', choices=['cpu', 'cuda', 'mlu'], required=True, help="Device to run the tests on.")
 args = parser.parse_args()    
 
-test_cases = [
-        
-
-        
-        ((700, 12), torch.float32, 1e-5, 'mlu'),
+test_cases = [       
+        ((700, 12), torch.float32, 1e-5, 'mlu'), 
         ((700, 12, 24), torch.float32, 1e-5, 'mlu'),
         ((700, 12, 24, 32), torch.float32, 1e-5, 'mlu'),
         ((700, 12, 24, 32, 64), torch.float32, 1e-5, 'mlu'),
@@ -129,9 +147,9 @@ test_cases = [
         ((700, 12), torch.float16, 1e-5, 'mlu'),
         ((700, 12, 24), torch.float16, 1e-5, 'mlu'),
         ((700, 12, 24, 32), torch.float16, 1e-5, 'mlu'),
-        ((700, 12, 24, 32, 64), torch.float16, 1e-5, 'mlu'),
-         
+        ((700, 12, 24, 32, 64), torch.float16, 1e-5, 'mlu'),        
 ]
+
 filtered_test_cases = [
     (test_shape, test_dtype, eps, device)
     for test_shape, test_dtype, eps, device in test_cases

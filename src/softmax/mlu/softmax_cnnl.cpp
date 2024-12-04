@@ -78,22 +78,19 @@ void softmaxCnnlDevice(T const *source, T *destination, int nDim, int axis, int 
     cnnlTensorDescriptor_t aDesc, cDesc;
     cnnlCreateTensorDescriptor(&aDesc);
     cnnlCreateTensorDescriptor(&cDesc);
+    cnnlDataType_t dataType;
     if(sizeof(T) == 2){
-        cnnlSetTensorDescriptor(
-        aDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-        inDim.size(), inDim.data());
-        cnnlSetTensorDescriptor(
-        cDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-        outDim.size(), outDim.data());
+        dataType = CNNL_DTYPE_HALF;
     }
     else if(sizeof(T) == 4){
-        cnnlSetTensorDescriptor(
-        aDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-        inDim.size(), inDim.data());
-        cnnlSetTensorDescriptor(
-        cDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-        outDim.size(), outDim.data());
+        dataType = CNNL_DTYPE_FLOAT;
     }
+    cnnlSetTensorDescriptor(
+        aDesc, CNNL_LAYOUT_ARRAY, dataType,
+        inDim.size(), inDim.data());
+    cnnlSetTensorDescriptor(
+        cDesc, CNNL_LAYOUT_ARRAY, dataType,
+        outDim.size(), outDim.data());
     
     T alpha = 1.0;
     T beta = 0.0;

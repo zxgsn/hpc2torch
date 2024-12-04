@@ -14,7 +14,7 @@ void batchnormCnnlDevice(void const *input, void const *scale, void const *bias,
         outDim[i] = shape[i];
         size *= shape[i];
     }
-    fbmvDim[0] = shape[nDim - 1];
+    fbmvDim[0] = shape[1];
     //下面开始针对[n,h,w,c]的tmpGdramI做batchnorm变换
     cnnlTensorDescriptor_t x_desc, z_desc, filter_bias_mean_var_desc;
     cnnlCreateTensorDescriptor(&x_desc);
@@ -36,56 +36,23 @@ void batchnormCnnlDevice(void const *input, void const *scale, void const *bias,
     else if(nDim == 5){
         layout = CNNL_LAYOUT_NDHWC;
     }
+    cnnlDataType_t dataType;
     if(sizeof(T) == 2){
-        cnnlSetTensorDescriptor(
-            x_desc, layout, CNNL_DTYPE_HALF,
-            inDim.size(), inDim.data());
-        cnnlSetTensorDescriptor(
-            z_desc, layout, CNNL_DTYPE_HALF,
-            outDim.size(), outDim.data());
-        cnnlSetTensorDescriptor(
-            filter_bias_mean_var_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            fbmvDim.size(), fbmvDim.data());
+        dataType = CNNL_DTYPE_HALF;
     }
     else if(sizeof(T) == 4){
-        cnnlSetTensorDescriptor(
-            x_desc, layout, CNNL_DTYPE_FLOAT,
-            inDim.size(), inDim.data());
-        cnnlSetTensorDescriptor(
-            z_desc, layout, CNNL_DTYPE_FLOAT,
-            outDim.size(), outDim.data());
-        cnnlSetTensorDescriptor(
-            filter_bias_mean_var_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            fbmvDim.size(), fbmvDim.data());
+        dataType = CNNL_DTYPE_FLOAT;
     }
-
-    //下面开始针对input做转置，nchw2nhwc
-    T *tmpGdramI, *tmpGdramO;//batchnorm库函数只能处理[n,h,w,c],tmpGdramI作为转置来变换input
-    CNRT_CHECK(cnrtMalloc((void **)&tmpGdramI, size * sizeof(T)));
-    CNRT_CHECK(cnrtMalloc((void **)&tmpGdramO, size * sizeof(T)));
-    cnnlTensorDescriptor_t aDesc, cDesc;
-       
-    cnnlCreateTensorDescriptor(&aDesc);
-    cnnlCreateTensorDescriptor(&cDesc);
-    if(sizeof(T) == 2){
-        cnnlSetTensorDescriptor(
-            aDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            inDim.size(), inDim.data());
-        
-        cnnlSetTensorDescriptor(
-            cDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF,
-            outDim.size(), outDim.data());
-    }
-    else if(sizeof(T) == 4){
-        cnnlSetTensorDescriptor(
-            aDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            inDim.size(), inDim.data());
-        
-        cnnlSetTensorDescriptor(
-            cDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
-            outDim.size(), outDim.data());
-    }
+    
+    cnnlSetTensorDescriptor(
+        filter_bias_mean_var_desc, CNNL_LAYOUT_ARRAY, dataType,
+        fbmvDim.size(), fbmvDim.data()); 
     if(nDim > 2){
+        
+        //下面开始针对input做转置，nchw2nhwc
+        T *tmpGdramI, *tmpGdramO;//batchnorm库函数只能处理[n,h,w,c],tmpGdramI作为转置来变换input
+        CNRT_CHECK(cnrtMalloc((void **)&tmpGdramI, size * sizeof(T)));
+        CNRT_CHECK(cnrtMalloc((void **)&tmpGdramO, size * sizeof(T)));
         cnnlTransposeDescriptor_t desc;
         cnnlCreateTransposeDescriptor(&desc);
         
@@ -95,33 +62,67 @@ void batchnormCnnlDevice(void const *input, void const *scale, void const *bias,
             permuteI[i] = i;
             permuteO[i] = i;
         }
-        if(nDim > 2){
-            for (int i = 0; i < nDim; i++) {
-                if(i >= 1){
-                    permuteI[i] = i + 1;
-                }
-                if(i >= 2){
-                    permuteO[i] = i - 1;
-                }
+        for (int i = 0; i < nDim; i++) {
+            if(i >= 1){
+                permuteI[i] = i + 1;
             }
-            permuteI[nDim - 1] = 1;
-            permuteO[1] = nDim - 1;
+            if(i >= 2){
+                permuteO[i] = i - 1;
+            }
         }
+        permuteI[nDim - 1] = 1;
+        permuteO[1] = nDim - 1;
         
         cnnlSetTransposeDescriptor(desc, nDim, permuteI.data());
+
+        std::vector<int> tranDim(nDim);//tmpGdramI和tmpGdramO的形状
+        for(int i = 0; i < nDim; i++){
+            tranDim[i] = shape[permuteI[i]];
+        }
+        
+        cnnlTensorDescriptor_t aDesc, cDesc;
+        
+        cnnlCreateTensorDescriptor(&aDesc);
+        cnnlCreateTensorDescriptor(&cDesc);
+        cnnlSetTensorDescriptor(
+            aDesc, CNNL_LAYOUT_ARRAY, dataType,
+            inDim.size(), inDim.data());
+        
+        cnnlSetTensorDescriptor(
+            cDesc, CNNL_LAYOUT_ARRAY, dataType,
+            tranDim.size(), tranDim.data());
+
+        
         size_t tSize;
         cnnlGetTransposeWorkspaceSize(handle, aDesc, desc, &tSize);
         void *workspace;
         cnrtMalloc(&workspace, tSize);
+        
         cnnlTranspose_v2(handle, desc, aDesc, input, cDesc,
                                 tmpGdramI, workspace, tSize);
-        CNRT_CHECK(cnrtQueueSync(queue));                         
+        CNRT_CHECK(cnrtQueueSync(queue));          
+        //------------------------------------------------------------               
         //上面成功对input做好了nchw2nhwc，下面开始正式计算batchnorm
+        cnnlSetTensorDescriptor(
+            x_desc, layout, dataType,
+            tranDim.size(), tranDim.data());
+        cnnlSetTensorDescriptor(
+            z_desc, layout, dataType,
+            tranDim.size(), tranDim.data());
+        
         cnnlBatchNormForwardInference(handle, nullptr, nullptr, x_desc, tmpGdramI, 
                                 filter_bias_mean_var_desc, scale, bias, mean, var, 
                                 eps, z_desc, tmpGdramO);
         CNRT_CHECK(cnrtQueueSync(queue));
-        //下面开始提前对output做转置：nhwc2nchw
+        //------------------------------------------------------------ 
+        //下面开始提前对output做转置：nhwc2nchw，此时需要重新设置aDesc和cDesc,desc
+        cnnlSetTensorDescriptor(
+            aDesc, CNNL_LAYOUT_ARRAY, dataType,
+            tranDim.size(), tranDim.data());
+        cnnlSetTensorDescriptor(
+            cDesc, CNNL_LAYOUT_ARRAY, dataType,
+            outDim.size(), outDim.data());
+        cnnlSetTransposeDescriptor(desc, nDim, permuteO.data());
         cnnlTranspose_v2(handle, desc, aDesc, tmpGdramO, cDesc,
                                 output, workspace, tSize);
         CNRT_CHECK(cnrtQueueSync(queue));  
@@ -132,6 +133,12 @@ void batchnormCnnlDevice(void const *input, void const *scale, void const *bias,
         cnnlDestroyTransposeDescriptor(desc);
     }
     else if (nDim == 2){
+        cnnlSetTensorDescriptor(
+            x_desc, layout, dataType,
+            inDim.size(), inDim.data());
+        cnnlSetTensorDescriptor(
+            z_desc, layout, dataType,
+            outDim.size(), outDim.data());
         cnnlBatchNormForwardInference(handle, nullptr, nullptr, x_desc, input, 
                                 filter_bias_mean_var_desc, scale, bias, mean, var, 
                                 eps, z_desc, output);
