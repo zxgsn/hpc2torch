@@ -45,7 +45,7 @@ void batchnormCnnlDevice(void const *input, void const *scale, void const *bias,
     }
     
     cnnlSetTensorDescriptor(
-        filter_bias_mean_var_desc, CNNL_LAYOUT_ARRAY, dataType,
+        filter_bias_mean_var_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT,
         fbmvDim.size(), fbmvDim.data()); 
     if(nDim > 2){
         

@@ -33,9 +33,11 @@ def test(test_shape, test_dtype, eps, device):
     ndim = len(test_shape)
     cSize = test_shape[1]
     input = torch.rand(test_shape, device=device, dtype=test_dtype, requires_grad=False)
-    scale = torch.rand(cSize, device=device, dtype=test_dtype, requires_grad=False)
-    bias = torch.rand(cSize, device=device, dtype=test_dtype, requires_grad=False)
-    mean, var = get_mean_variance(input, test_dtype)
+    #cnnlBatchnorm支持scale类型f16但是input类型f32的情况，但是手写batchnorm必须保证input,scale数据类型保持一致
+    bn_dtype = test_dtype if test_dtype != torch.float16 else torch.float32
+    scale = torch.rand(cSize, device=device, dtype=bn_dtype, requires_grad=False)
+    bias = torch.rand(cSize, device=device, dtype=bn_dtype, requires_grad=False)
+    mean, var = get_mean_variance(input, bn_dtype)
     
     output = torch.rand(test_shape, device=device, dtype=test_dtype, requires_grad=False)
 
