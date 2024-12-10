@@ -136,7 +136,7 @@ test_cases = [
         ((4, 1, 32), "mlu", torch.float16),
         ((1, 32, 128), "mlu", torch.float16),
         
-        ((3, 32, 128), (8000, 200, 1), torch.float16),
+        ((3, 32, 128), "mlu", torch.float16),
     ]
 filtered_test_cases = [
     (test_shape, device, test_dtype)
