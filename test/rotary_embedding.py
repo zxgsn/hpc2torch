@@ -51,11 +51,11 @@ def test(test_shape, torch_device, test_dtype=torch.float16):
     )
     ndim = len(test_shape)
     t = torch.rand(test_shape, dtype=test_dtype)
-    
+    output = t.clone()
     pos = torch.arange(0, t.shape[0])
     theta = 1e4
     
-    pos = pos.to(torch.int64)
+    pos = pos.to(torch.int32)
     pos = pos.to(torch_device)
     t = t.to(torch_device)
 
@@ -82,8 +82,8 @@ def test(test_shape, torch_device, test_dtype=torch.float16):
     if test_dtype == torch.float16:
         
         if device == "mlu":
-            torch_RoPE_time = performance.BangProfile((rotary_embedding, (t.to("cpu"), pos.to("cpu"), theta, "cpu")))  
-            
+            torch_RoPE_time = performance.BangProfile((rotary_embedding, (output.to("cpu"), pos.to("cpu"), theta, "cpu")))  
+            '''
             lib.RoPE_cnnl_f16.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),
                 ctypes.POINTER(ctypes.c_void_p),
@@ -109,10 +109,10 @@ def test(test_shape, torch_device, test_dtype=torch.float16):
             ]
             custom_RoPE_time = \
             performance.BangProfile((lib.RoPE_bang_f16, (t_ptr, pos_ptr, sin_ptr, cos_ptr, stride_0, stride_1, nt, nh, dimsize)))
-            '''
+            
             
     performance.logBenchmark(torch_RoPE_time, custom_RoPE_time)
-    tmpa = rotary_embedding(t.to("cpu"), pos.to("cpu"), theta, "cpu").detach().numpy().flatten()
+    tmpa = output.to("cpu").detach().numpy().flatten()
     
     tmpb = t.to('cpu').detach().numpy().flatten()
     

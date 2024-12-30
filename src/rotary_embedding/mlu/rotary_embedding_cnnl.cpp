@@ -35,7 +35,7 @@ void RoPECnnlDevice(void *destination, void const *pos_ids, void const *sin_tabl
         dataType = CNNL_DTYPE_FLOAT;
     }
     cnnlSetTensorDescriptorEx(inDesc, CNNL_LAYOUT_ARRAY, dataType, 4, inShape, inStrides);
-    cnnlSetTensorDescriptor(posDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_INT64, 1, &seq_len);
+    cnnlSetTensorDescriptor(posDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_INT32, 1, &seq_len);
     cnnlSetTensorDescriptor(sinFullDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT, 2, sinFullShape);
     cnnlSetTensorDescriptor(sinSelectedDesc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT, 2, sinSelectedShape);
     cnnlSetTensorDescriptor(sinSelectedFP16Desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_HALF, 2, sinSelectedShape);
