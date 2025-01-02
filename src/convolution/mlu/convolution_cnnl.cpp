@@ -117,10 +117,26 @@ void convolutionCnnlDevice(void const *input, void const *scale, void *output, i
     CNRT_CHECK(cnrtQueueSync(queue));  
     //------------------------------------------------------------               
     //上面成功对input, scale做好了nchw2nhwc，下面开始正式计算conv
+    int *pad;
+    if (nDim == 4){
+        pad = (int *)malloc(4 * sizeof(int));
+        for(int i = 0; i < 2; i++){
+            pad[2 * i] = pads[i];
+            pad[2 * i + 1] = pads[i];
+        }
+    }
+    else if (nDim == 5){
+        pad = (int *)malloc(6 * sizeof(int));
+        for(int i = 0; i < 3; i++){
+            pad[2 * i] = pads[i];
+            pad[2 * i + 1] = pads[i];
+        }
+    }
+    
     
     cnnlConvolutionDescriptor_t convDesc;
     cnnlCreateConvolutionDescriptor(&convDesc);
-    cnnlSetConvolutionDescriptor(convDesc, nDim, pads, strides, dilations, 1,
+    cnnlSetConvolutionDescriptor(convDesc, nDim, pad, strides, dilations, 1,
                                          dataType);
     cnnlConvolutionForwardAlgo_t algo;   
     cnnlGetConvolutionForwardAlgorithm(handle, convDesc,
@@ -151,6 +167,7 @@ void convolutionCnnlDevice(void const *input, void const *scale, void *output, i
     cnnlTranspose_v2(handle, desc, ODesc, tmpGdramO, y_desc,
                             output, workspaceO, tSizeO);
     CNRT_CHECK(cnrtQueueSync(queue));  
+    free(pad);
     cnrtFree(tmpGdramI);
     cnrtFree(tmpGdramS);
     cnrtFree(tmpGdramO);
