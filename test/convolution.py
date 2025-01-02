@@ -139,7 +139,13 @@ parser = argparse.ArgumentParser(description="Test convolution on different devi
 parser.add_argument('--device', choices=['cpu', 'cuda', 'mlu'], required=True, help="Device to run the tests on.")
 args = parser.parse_args()    
 
-test_cases = [       
+test_cases = [   
+        ((32, 3, 4),
+            (32, 3, 5),
+            (1,),
+            (1,),
+            (1,),
+            torch.float32, 'mlu'),    
         ((32, 3, 128, 128),
             (64, 3, 5, 5),
             (2, 2),
@@ -154,7 +160,13 @@ test_cases = [
             (64, 3, 5, 5, 5),
             (3, 2, 2),
             (4, 3, 3),
-            (2, 2, 1), torch.float32, 'mlu'),    
+            (2, 2, 1), torch.float32, 'mlu'),  
+        ((32, 3, 4),
+            (32, 3, 5),
+            (1,),
+            (1,),
+            (1,),
+            torch.float16, 'mlu'),     
         ((32, 3, 128, 128),
             (64, 3, 5, 5),
             (2, 2),

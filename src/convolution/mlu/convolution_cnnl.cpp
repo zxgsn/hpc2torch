@@ -196,8 +196,35 @@ void convolutionCnnl(void const *input, void const *scale, void *output, int *pa
     cnrtQueue_t queue;
     CNRT_CHECK(cnrtQueueCreate(&queue));
     cnnlSetQueue(handle, queue); // 将队列绑定到 handle 中, 此接口也可用来更改句柄中的队列。
-
-    convolutionCnnlDevice<T>(input, scale, output, pads, strides, dilations, x_shape, w_shape, y_shape, nDim, handle, queue);
+    if(nDim == 3){
+        int new_ndim = 4;
+        int *new_pads = (int *)malloc(2 * sizeof(int));
+        int *new_strides = (int *)malloc(2 * sizeof(int));
+        int *new_dilations = (int *)malloc(2 * sizeof(int));
+        int *new_x_shape = (int *)malloc(new_ndim * sizeof(int));
+        int *new_w_shape = (int *)malloc(new_ndim * sizeof(int));
+        int *new_y_shape = (int *)malloc(new_ndim * sizeof(int));
+        for(int i = 0; i < 2; i++){
+            new_pads[i] = (i < 1 ? pads[i] : 0);
+            new_strides[i] = (i < 1 ? strides[i] : 1);
+            new_dilations[i] = (i < 1 ? dilations[i] : 1);
+        }
+        for(int i = 0; i < new_ndim; i++){
+            new_x_shape[i] = (i < nDim ? x_shape[i] : 1);
+            new_w_shape[i] = (i < nDim ? w_shape[i] : 1);
+            new_y_shape[i] = (i < nDim ? y_shape[i] : 1);
+        }
+        convolutionCnnlDevice<T>(input, scale, output, new_pads, new_strides, new_dilations, new_x_shape, new_w_shape, new_y_shape, new_ndim, handle, queue);
+        free(new_pads);
+        free(new_strides);
+        free(new_dilations);
+        free(new_x_shape);
+        free(new_w_shape);
+        free(new_y_shape);
+    }
+    else{
+        convolutionCnnlDevice<T>(input, scale, output, pads, strides, dilations, x_shape, w_shape, y_shape, nDim, handle, queue);
+    }
     
     cnnlDestroy(handle);
     CNRT_CHECK(cnrtQueueDestroy(queue));
