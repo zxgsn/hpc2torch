@@ -151,16 +151,16 @@ __global__ void row_wmma_ker(float *dA, float *dB, float *dC, int M, int K, int 
 extern "C" void matmul_cuda_f32(void const *dA, void const *dB, void *dC, int M, int K, int N)
 {
 
-    // int num_blocks_x = (M + BM - 1) / BM;
-    // int num_blocks_y = (N + BN - 1) / BN;
-    // dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
-    // dim3 grid_dim(num_blocks_x, num_blocks_y, 1);
-    // matrixKernel5th<BM, BN, BK, TM, TN><<<grid_dim, block_dim>>>((float *)dA, (float *)dB, (float *)dC, M, K, N);
-
-    int num_block_x = (M + WMMA_M * warpX - 1) / (WMMA_M * warpX);
-    int num_block_y = (N + WMMA_N * warpY - 1) / (WMMA_N * warpY);
-
+    int num_blocks_x = (M + BM - 1) / BM;
+    int num_blocks_y = (N + BN - 1) / BN;
     dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
-    dim3 grid_dim(num_block_x, num_block_y, 1);
-    row_wmma_kerS<<<grid_dim, block_dim>>>((float *)dA, (float *)dB, (float *)dC, M, K, N);
+    dim3 grid_dim(num_blocks_x, num_blocks_y, 1);
+    matrixKernel5th<BM, BN, BK, TM, TN><<<grid_dim, block_dim>>>((float *)dA, (float *)dB, (float *)dC, M, K, N);
+
+    // int num_block_x = (M + WMMA_M * warpX - 1) / (WMMA_M * warpX);
+    // int num_block_y = (N + WMMA_N * warpY - 1) / (WMMA_N * warpY);
+
+    // dim3 block_dim(BLOCK_DIM_x, BLOCK_DIM_y, 1);
+    // dim3 grid_dim(num_block_x, num_block_y, 1);
+    // row_wmma_ker<<<grid_dim, block_dim>>>((float *)dA, (float *)dB, (float *)dC, M, K, N);
 }
