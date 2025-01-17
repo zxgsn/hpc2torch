@@ -1,2 +1,3 @@
 ﻿/build
 /test/__pycache__
+cuda/
