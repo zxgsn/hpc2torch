@@ -19,7 +19,7 @@ def gather(rank, axis, inputTensor, indexTensor):
     return outTensor
 def test(inputShape, indexShape, axis, test_dtype, device):
     print(
-        f"Testing Softmax on {device} with x_shape:{inputShape} , indice_shape:{indexShape}, axis:{axis} ,dtype:{test_dtype}"
+        f"Testing Gather on {device} with x_shape:{inputShape} , indice_shape:{indexShape}, axis:{axis} ,dtype:{test_dtype}"
     )
     inputTensor = torch.rand(inputShape, device=device, dtype=test_dtype)
 
@@ -33,19 +33,63 @@ def test(inputShape, indexShape, axis, test_dtype, device):
     input_ptr = ctypes.cast(inputTensor.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     index_ptr = ctypes.cast(indexTensor.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     output_ptr = ctypes.cast(Q_output.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
+    
+    # 计算 outer_size 和 inner_size
+    outer_size = int(np.prod(inputShape[:axis])) if axis > 0 else indexShape[0]
+    inner_size = int(np.prod(inputShape[axis + 1:]))
+    axis_size = inputShape[axis]
+    # print("shape = \n", indexShape)
+    # print("idsxize = \n", indexShape[-1])
+    # index_size = indexShape[axis]
+    index_size = indexShape[-1]
+
+    '''
+    lib.gather_cuda_half.argtypes = [
+        ctypes.POINTER(ctypes.c_uint16),  # data (half)
+        ctypes.POINTER(ctypes.c_int64),   # indices
+        ctypes.POINTER(ctypes.c_uint16),  # output (half)
+        ctypes.c_int64,                   # axis_size
+        ctypes.c_int64,                   # outer_size
+        ctypes.c_int64                    # inner_size
+    ]
+    '''
+    
 
     if test_dtype == torch.float32:
         if device == "cuda":
             torch_gather_time = performance.CudaProfile((gather, (rank, axis, inputTensor, indexTensor)))
-            custom_gather_time = 0
+            lib.gather_cuda_float.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),  # data
+                ctypes.POINTER(ctypes.c_void_p),  # indices
+                ctypes.POINTER(ctypes.c_void_p),  # output
+                ctypes.c_int64,                  # axis_size
+                ctypes.c_int64,                  # outer_size
+                ctypes.c_int64,                  # inner_size
+                ctypes.c_int64,                  # index_size
+                ctypes.c_int64                   # axis
+            ]
+            custom_gather_time = performance.CudaProfile((lib.gather_cuda_float, (input_ptr, index_ptr, output_ptr, axis_size, outer_size, inner_size, index_size, axis)))
     if test_dtype == torch.float16:
         if device == "cuda":
             torch_gather_time = performance.CudaProfile((gather, (rank, axis, inputTensor, indexTensor)))
-            custom_gather_time = 0
+            lib.gather_cuda_float.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),  # data
+                ctypes.POINTER(ctypes.c_void_p),  # indices
+                ctypes.POINTER(ctypes.c_void_p),  # output
+                ctypes.c_int64,                  # axis_size
+                ctypes.c_int64,                  # outer_size
+                ctypes.c_int64,                  # inner_size
+                ctypes.c_int64,                  # index_size
+                ctypes.c_int64                   # axis
+            ]
+            custom_gather_time = performance.CudaProfile((lib.gather_cuda_half, (input_ptr, index_ptr, output_ptr, axis_size, outer_size, inner_size, index_size, axis)))
     performance.logBenchmark(torch_gather_time, custom_gather_time)
 
     tmpa = outTensor.to('cpu').numpy().flatten()
     tmpb = Q_output.to('cpu').numpy().flatten()
+    input = inputTensor.to('cpu').numpy().flatten()
+
+    print("input = ", input," torch = ", tmpa, " cuda = ", tmpb)
 
     atol = max(abs(tmpa - tmpb))
 
@@ -63,7 +107,7 @@ test_cases = [
         ((3, 2), (1, 2), 1, torch.float32, "cuda"),
         ((50257, 768), (16, 1024), 0, torch.float32, "cuda"),
 
-        ((3, 2), (2, 2), 0, torch.float16, "cuda"),
+        ((3, 2), (2, 2), 0, torch.float16, "cuda"), # some problems
         ((3, 2), (1, 2), 1, torch.float16, "cuda"),
         ((50257, 768), (16, 1024), 0, torch.float16, "cuda"),
          

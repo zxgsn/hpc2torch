@@ -18,6 +18,11 @@ option(USE_CPU "Enable CPU-only compilation" OFF)
 # 添加头文件搜索路径  
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
+find_package(CUDA 12.6 REQUIRED)
+# 如果 CUDA 被找到，则自动添加 CUDA 的头文件路径
+include_directories(${CUDA_INCLUDE_DIRS})
+
+
 #使用 GLOB 命令找到 include/ 下的所有 .cpp 文件
 file(GLOB INCLUDE_SOURCE_FILES "include/**.cpp")
  
