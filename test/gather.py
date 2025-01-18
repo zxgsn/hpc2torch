@@ -72,7 +72,7 @@ def test(inputShape, indexShape, axis, test_dtype, device):
     if test_dtype == torch.float16:
         if device == "cuda":
             torch_gather_time = performance.CudaProfile((gather, (rank, axis, inputTensor, indexTensor)))
-            lib.gather_cuda_float.argtypes = [
+            lib.gather_cuda_half.argtypes = [
                 ctypes.POINTER(ctypes.c_void_p),  # data
                 ctypes.POINTER(ctypes.c_void_p),  # indices
                 ctypes.POINTER(ctypes.c_void_p),  # output
@@ -87,9 +87,9 @@ def test(inputShape, indexShape, axis, test_dtype, device):
 
     tmpa = outTensor.to('cpu').numpy().flatten()
     tmpb = Q_output.to('cpu').numpy().flatten()
-    input = inputTensor.to('cpu').numpy().flatten()
+    # input = inputTensor.to('cpu').numpy().flatten()
 
-    print("input = ", input," torch = ", tmpa, " cuda = ", tmpb)
+    print(" torch = ", tmpa, " cuda = ", tmpb)
 
     atol = max(abs(tmpa - tmpb))
 
