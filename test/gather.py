@@ -110,8 +110,12 @@ test_cases = [
 
         # 新增的高维度测试用例
         ((3, 4, 5), (3, 4, 1), 0, torch.float32, "cuda"), 
-        ((3, 4, 5), (3, 4, 1), 2, torch.float32, "cuda"),  
-        ((3, 4, 5), (3, 4, 1), 1, torch.float32, "cuda")
+        ((3, 4, 5), (3, 4, 1), 1, torch.float32, "cuda"),  
+        ((3, 4, 5), (3, 4, 1), 2, torch.float32, "cuda"),
+        ((3, 2, 1, 5), (2, 2, 2), 0, torch.float32, "cuda"),
+        ((3, 2, 1, 5), (2, 2, 2), 1, torch.float32, "cuda"),
+        ((3, 2, 1, 5), (2, 2, 2), 2, torch.float32, "cuda"),
+        ((3, 2, 1, 5), (2, 2, 2), 3, torch.float32, "cuda")
          
 ]
 filtered_test_cases = [
