@@ -5,8 +5,8 @@
 #include <cassert>
 
 // 常量定义
-constexpr int BLOCK_DIM_X = 16;
-constexpr int BLOCK_DIM_Y = 16;
+constexpr int BLOCK_DIM_X = 4;
+constexpr int BLOCK_DIM_Y = 4;
 
 // 辅助函数：计算对齐的网格尺寸
 inline int64_t ceil_div(int64_t x, int64_t y)
@@ -16,35 +16,27 @@ inline int64_t ceil_div(int64_t x, int64_t y)
 
 template <typename T>
 __global__ void gather_kernel(const T *input,
-                            const int64_t *indices,
-                            T *output,
-                            int64_t axis_size,
-                            int64_t outer_size,
-                            int64_t inner_size,
-                            int64_t index_size,
-                            int64_t axis)
+                              const int64_t *indices,
+                              T *output,
+                              int64_t axis_size,
+                              int64_t outer_size,
+                              int64_t inner_size,
+                              int64_t index_size,
+                              int64_t axis)
 {
     const int64_t idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     const int64_t idx_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (idx_x >= (inner_size * index_size))
+    if (idx_x >= (inner_size * index_size) || idx_y >= outer_size)
         return;
 
     const int64_t index_idx = idx_x / inner_size;
     const int64_t inner_idx = idx_x % inner_size;
-    int64_t input_idx;
 
-    if (axis == 0) {
-        const int64_t index = indices[idx_y * index_size + index_idx];
-        input_idx = index * inner_size + inner_idx;
-    }
-    else {
-        const int64_t outer_idx = idx_y;
-        const int64_t index = indices[index_idx];
-        input_idx = outer_idx * axis_size + index * inner_size + inner_idx;
-    }
+    const int64_t index = indices[index_idx];
+    const int64_t input_idx = (idx_y * axis_size + index) * inner_size + inner_idx;
+    const int64_t out_idx = idx_y * (index_size * inner_size) + idx_x;
 
-    const int64_t out_idx = idx_y * (inner_size * index_size) + idx_x;
     output[out_idx] = input[input_idx];
 }
 

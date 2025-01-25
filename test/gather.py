@@ -35,13 +35,10 @@ def test(inputShape, indexShape, axis, test_dtype, device):
     output_ptr = ctypes.cast(Q_output.data_ptr(), ctypes.POINTER(ctypes.c_void_p))
     
     # 计算 outer_size 和 inner_size
-    outer_size = int(np.prod(inputShape[:axis])) if axis > 0 else indexShape[0]
+    outer_size = int(np.prod(inputShape[:axis]))
     inner_size = int(np.prod(inputShape[axis + 1:]))
     axis_size = inputShape[axis]
-    # print("shape = \n", indexShape)
-    # print("idsxize = \n", indexShape[-1])
-    # index_size = indexShape[axis]
-    index_size = indexShape[-1]
+    index_size = int(np.prod(indexShape))
 
     '''
     lib.gather_cuda_half.argtypes = [
@@ -89,7 +86,7 @@ def test(inputShape, indexShape, axis, test_dtype, device):
     tmpb = Q_output.to('cpu').numpy().flatten()
     # input = inputTensor.to('cpu').numpy().flatten()
 
-    print(" torch = ", tmpa, " cuda = ", tmpb)
+    # print(" torch = ", tmpa, " cuda = ", tmpb)
 
     atol = max(abs(tmpa - tmpb))
 
@@ -112,9 +109,9 @@ test_cases = [
         ((50257, 768), (16, 1024), 0, torch.float16, "cuda"),
 
         # 新增的高维度测试用例
-        ((3, 2, 4), (2, 2, 2), 0, torch.float32, "cuda"), 
-        ((3, 2, 4), (1, 2, 2), 1, torch.float32, "cuda"),  
-        ((3, 2, 4), (1, 2, 4), 2, torch.float32, "cuda")
+        ((3, 4, 5), (3, 4, 1), 0, torch.float32, "cuda"), 
+        ((3, 4, 5), (3, 4, 1), 2, torch.float32, "cuda"),  
+        ((3, 4, 5), (3, 4, 1), 1, torch.float32, "cuda")
          
 ]
 filtered_test_cases = [
