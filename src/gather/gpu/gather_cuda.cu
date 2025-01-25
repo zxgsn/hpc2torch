@@ -16,44 +16,34 @@ inline int64_t ceil_div(int64_t x, int64_t y)
 
 template <typename T>
 __global__ void gather_kernel(const T *input,
-                              const int64_t *indices,
-                              T *output,
-                              int64_t axis_size,
-                              int64_t outer_size,
-                              int64_t inner_size,
-                              int64_t index_size,
-                              int64_t axis)
+                            const int64_t *indices,
+                            T *output,
+                            int64_t axis_size,
+                            int64_t outer_size,
+                            int64_t inner_size,
+                            int64_t index_size,
+                            int64_t axis)
 {
-    // 计算2D线程索引
     const int64_t idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     const int64_t idx_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-    // 检查边界
-    if (idx_y >= outer_size || idx_x >= (inner_size * index_size))
-    {
+    if (idx_x >= (inner_size * index_size))
         return;
-    }
 
-    // 计算索引
     const int64_t index_idx = idx_x / inner_size;
     const int64_t inner_idx = idx_x % inner_size;
     int64_t input_idx;
 
-    // 计算输入索引
-    if (axis == 0)
-    {
-        // 沿第一维gather
+    if (axis == 0) {
         const int64_t index = indices[idx_y * index_size + index_idx];
         input_idx = index * inner_size + inner_idx;
     }
-    else
-    {
-        // 对于axis=1的情况，每行独立计算
+    else {
+        const int64_t outer_idx = idx_y;
         const int64_t index = indices[index_idx];
-        input_idx = idx_y * axis_size + index; // 直接定位到对应行的具体列
+        input_idx = outer_idx * axis_size + index * inner_size + inner_idx;
     }
 
-    // 计算输出索引并写入结果
     const int64_t out_idx = idx_y * (inner_size * index_size) + idx_x;
     output[out_idx] = input[input_idx];
 }
