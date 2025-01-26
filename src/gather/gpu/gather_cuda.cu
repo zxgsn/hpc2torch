@@ -16,30 +16,32 @@ inline int64_t ceil_div(int64_t x, int64_t y)
 
 template <typename T>
 __global__ void gather_kernel(const T *input,
-                            const int64_t *indices,
-                            T *output,
-                            int64_t axis_size,
-                            int64_t outer_size,
-                            int64_t inner_size,
-                            int64_t index_size,
-                            int64_t axis)
+                              const int64_t *indices,
+                              T *output,
+                              int64_t axis_size,
+                              int64_t outer_size,
+                              int64_t inner_size,
+                              int64_t index_size,
+                              int64_t axis)
 {
-    const int64_t thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int64_t batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
-    
+    const int64_t x_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int64_t y_idx = blockIdx.y * blockDim.y + threadIdx.y;
+
     // 每个线程处理ITEMS_PER_THREAD个元素
-    for (int i = 0; i < ITEMS_PER_THREAD; i++) {
-        const int64_t curr_idx = thread_idx * ITEMS_PER_THREAD + i;
-        if (curr_idx >= inner_size * index_size) break;
-        
+    for (int i = 0; i < ITEMS_PER_THREAD; i++)
+    {
+        const int64_t curr_idx = x_idx * ITEMS_PER_THREAD + i;
+        if (curr_idx >= inner_size * index_size)
+            break;
+
         const int64_t index_idx = curr_idx / inner_size;
         const int64_t inner_idx = curr_idx % inner_size;
-        
+
         const int64_t index = indices[index_idx];
-   
-        const int64_t input_idx = (batch_idx * axis_size + index) * inner_size + inner_idx;
-        const int64_t out_idx = batch_idx * (index_size * inner_size) + curr_idx;
-        
+
+        const int64_t input_idx = (y_idx * axis_size + index) * inner_size + inner_idx;
+        const int64_t out_idx = y_idx * (index_size * inner_size) + curr_idx;
+
         output[out_idx] = input[input_idx];
     }
 }
